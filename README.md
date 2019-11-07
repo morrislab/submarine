@@ -12,7 +12,7 @@ python2 submarine.py --parents_file submarine_example/ex1_parents.csv
 
 To start the depth-first search type:
 ```
-python submarine.py --dfs --lineage_file my_test.lineage.json 
+python2 submarine.py --dfs --lineage_file my_test.lineage.json 
   --seg_file submarine_example/ex1_seg_num.csv --z_matrix_file my_test.zmatrix 
   --output_prefix my_test--write_trees_to_file
 ```
