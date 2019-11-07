@@ -1,0 +1,4 @@
+seg_index	chr	pos	lineage	phase	cna_infl_same_lineage
+0	1	1	1	0	0
+1	1	10	2	A	1
+2	1	101	3	B	0
