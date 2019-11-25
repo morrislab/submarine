@@ -53,6 +53,26 @@ This file can be provided by the user and indicates for which SSMs the phasing c
 * `phase`: phase of SSMs that should not be changed.
 * `lineage`: lineage index SSMs are assigned to whose phase should not be changed.
 
+## Output files
+
+SubMARine produces the following four output files.
+
+`<my_file_name>.zmatrix`:
+This file contains the ancestry matrix `Z` in a `json` list. If `Z[k][k'] = 1`, lineage `k` is an ancestor of lineage `k'`, if `Z[k][k'] = 0` lineage `k` is not an ancestor of lineage `k'`, and if `Z[k][k'] = ?`, lineage `k` could be an ancestor of lineage `k'`.
+
+`<my_file_name>.pospars`:
+This file contains the possible parent matrix `\tau` as a comma-separated text file. If lineage `k` is a possible parent of lineage `k'`, then `\tau[k'][k] = 1`, otherwise `\tau[k'][k] = 0`.
+
+`<my_file_name>_ssms.csv`:
+This file contains the eventually updated phasing information for each SSM in the same format as the required input file `ssm_file`.
+
+`<my_file_name>.lineage.json`:
+This file contains the sorted lineages of the built subclonal reconstruction in `json` format. Each lineage contains a list of SSMs assigned to allele `A` (`ssms_a`) or `B` (`ssms_b`) or being unphased (`ssms`), a list of indices of all descendant lineages (`sublins`), a list with CNAs assigned to allele `A` (`cnvs_a`) or `B` (`cnvs_b`), and a list with the frequencies of the current lineage in all samples (`freq`).
+
+For each SSM, the following information is given: the lineage it is assigned to (`lineage`), whether it is influenced by a copy number gain in the same lineage (`infl_cnv_same_lin`), its position on the chromosome (`pos`), its reference count (`ref_count`, we don't need this information in the context of SubMARine, thus the value is `-1`), its chromosome (`chr`), its variant count (`variant_count`, we don't need this information in the context of SubMARine, thus the value is `-1`), its phase (`phase`, with phase `A` being `0`, phase `B` being `1` and unphased being `2`), and its segment index (`seg_index`).
+
+For each CNA, the following information is given: the lineage it is assigned to (`lineage`), its start position (`start`), its chromosome (`chr`), its end position (`end`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), and its relative copy number change (`change`).
+
 ## Running SubMARine
 
 To run SubMARine on the provided test files type:
