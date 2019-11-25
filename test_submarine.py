@@ -15,6 +15,20 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_convert_zmatrix_for_internal_use(self):
+
+		z_matrix = [[0, 1, 1, 1], [0, 0, "?", 1], [0, 0, 0, "?"], [0, 0, 0, 0]]
+		new_z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+
+		submarine.convert_zmatrix_for_internal_use(z_matrix)
+		self.assertEqual(z_matrix, new_z_matrix)
+
+	def test_convert_zmatrix_0_m1(self):
+
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		new_z_matrix = [[0, 1, 1, 1], [0, 0, "?", 1], [0, 0, 0, "?"], [0, 0, 0, 0]]
+		self.assertEqual(submarine.convert_zmatrix_0_m1(z_matrix), new_z_matrix)
+
 	def test_count_ambiguous_relationships(self):
 
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]

@@ -263,7 +263,9 @@ def depth_first_search(lineage_file, seg_num_file, z_matrix_file, output_prefix,
 		for line in f:
 			seg_num = int(line.rstrip())
 	# get z_matrix
-	z_matrix = np.loadtxt(z_matrix_file, delimiter=",").tolist()
+	z_matrix = oio.read_matrix_from_file(z_matrix_file)
+	if z_matrix[0][0] == 0:
+		convert_zmatrix_for_internal_use(z_matrix)
 
 	z_matrices_file = None
 	if only_number == False:
@@ -413,7 +415,7 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 			# if Z-matrix should be written to file and maximum number in file is not reached yet
 			if filename is not None and count <= count_threshold:
 				with open(filename, "a") as f:
-					my_string = json.dumps(zmco_current.z_matrix)
+					my_string = json.dumps(convert_zmatrix_0_m1(zmco_current.z_matrix))
 					f.write("{0}\n".format(my_string))
 
 	return count
@@ -534,16 +536,6 @@ def add_CN_changes_to_hash(CN_changes_hash, cnvs, phase, lin_index):
 				CN_changes_hash[lin_index] = {}
 				CN_changes_hash[lin_index][cnv.seg_index] = [phase]
 				
-
-# converts -1 to 0, and 0 to ?
-def convert_zmatrix(z_matrix):
-	for k in xrange(len(z_matrix)):
-		for k2 in xrange(len(z_matrix)):
-			if z_matrix[k][k2] == -1:
-				z_matrix[k][k2] = 0
-			elif z_matrix[k][k2] == 0:
-				z_matrix[k][k2] = "?"
-
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
 	# checks whether output files exist already
@@ -588,10 +580,36 @@ def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None
 
 	# print to file
 	logging.info("Printing results to file.")
-	np.savetxt("{0}.zmatrix".format(output_prefix), z_matrix, delimiter=",", fmt='%1.0f')
+	#np.savetxt("{0}.zmatrix".format(output_prefix), z_matrix, delimiter=",", fmt='%1.0f')
+	z_matrix_for_output = convert_zmatrix_0_m1(z_matrix)
+	oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
 	np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
 	oio.print_ssm_phasing(my_lins, "{0}_ssms.csv".format(output_prefix), overwrite)
 	oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+
+# converts a 0 to a "?" and a -1 to a 0 as described in the paper
+def convert_zmatrix_0_m1(z_matrix):
+	lin_num = len(z_matrix)
+	new_z_matrix = np.ones(lin_num * lin_num).reshape(lin_num, lin_num).tolist()
+	for k in xrange(lin_num):
+		for k2 in xrange(lin_num):
+			if z_matrix[k][k2] == 0:
+				new_z_matrix[k][k2] = "?"
+			elif z_matrix[k][k2] == -1:
+				new_z_matrix[k][k2] = 0
+			elif z_matrix[k][k2] == 1:
+				new_z_matrix[k][k2] = 1
+	return new_z_matrix
+
+def convert_zmatrix_for_internal_use(z_matrix):
+	assert z_matrix[0][0] == 0
+	lin_num = len(z_matrix)
+	for k in xrange(lin_num):
+		for k2 in xrange(lin_num):
+			if z_matrix[k][k2] == 0:
+				z_matrix[k][k2] = -1
+			elif z_matrix[k][k2] == "?":
+				z_matrix[k][k2] = 0
 
 # given information about parents, frequencies, cnas and ssms in a file, create a lineage object
 def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=None, ssm_file=None):
