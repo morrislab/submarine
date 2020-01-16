@@ -40,11 +40,11 @@ class SNP_SSM(object):
 		self.ref_count += ref_count
 
 	def print_snp_ssm(self):
-		print self.chr
-		print self.pos
-		print self.variant_count
-		print self.ref_count
-		print self.seg_index
+		print(self.chr)
+		print(self.pos)
+		print(self.variant_count)
+		print(self.ref_count)
+		print(self.seg_index)
 
 class SNP(SNP_SSM):
 	pass

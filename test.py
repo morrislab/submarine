@@ -6,9 +6,9 @@ if __name__ == '__main__':
 	suite_io_file = test_io_file.suite()
 	suite_submarine = test_submarine.suite()
 
-	print ""
+	print("")
 
 	unittest.TextTestRunner(verbosity=2).run(suite_submarine) 
-	unittest.TextTestRunner(verbosity=2).run(suite_io_file)
+	#unittest.TextTestRunner(verbosity=2).run(suite_io_file)
 
-	print ""
+	print("")

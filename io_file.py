@@ -57,7 +57,7 @@ def read_parent_vector(my_file):
 			if first_line:
 				first_line = False
 				continue
-			lins_parents.append(map(int,line.rstrip().split("\t")))
+			lins_parents.append(list(map(int,line.rstrip().split("\t"))))
 	parents = [p[1] for p in sorted(lins_parents, key=lambda x: x[0])]
 	return parents
 
@@ -70,7 +70,7 @@ def read_frequencies(my_file):
 				first_line = False
 				continue
 			lins = int(line.split("\t")[0])
-			freqs = map(float, line.rstrip().split("\t")[1:])
+			freqs = list(map(float, line.rstrip().split("\t")[1:]))
 			lins_freqs.append([lins, freqs])
 	freqs = [f[1] for f in sorted(lins_freqs, key=lambda x: x[0])]
 	return freqs
@@ -138,7 +138,7 @@ def read_userZ(my_file, lin_num):
 			if first_line:
 				first_line = False
 				continue
-			k, kp, v = map(int, line.rstrip().split("\t"))
+			k, kp, v = list(map(int, line.rstrip().split("\t")))
 			if v == 1:
 				z_matrix[k][kp] = 1
 			elif v == 0:
@@ -149,8 +149,8 @@ def read_userZ(my_file, lin_num):
 	return z_matrix
 
 def read_userSSM(my_file, lin_num, seg_num):
-	tmp_user_ssm = [[False] * lin_num for i in xrange(3)]
-	user_ssm = [tmp_user_ssm for i in xrange(seg_num)]
+	tmp_user_ssm = [[False] * lin_num for i in range(3)]
+	user_ssm = [tmp_user_ssm for i in range(seg_num)]
 	first_line = True
 	with open(my_file, "r") as f:
 		for line in f:
@@ -174,7 +174,7 @@ def print_ssm_phasing(my_lins, output_file, overwrite=False):
 
 	my_ssms = []
 
-	for k in xrange(1, len(my_lins)):
+	for k in range(1, len(my_lins)):
 		get_ssm_information(my_lins[k].ssms, my_ssms)
 		get_ssm_information(my_lins[k].ssms_a, my_ssms)
 		get_ssm_information(my_lins[k].ssms_b, my_ssms)
@@ -184,7 +184,7 @@ def print_ssm_phasing(my_lins, output_file, overwrite=False):
 	with open(output_file, "w") as f:
 		f.write("seg_index\tchr\tpos\tlineage\tphase\tcna_infl_same_lineage\n")
 		for ssm in my_ssms:
-			f.write("{0}\n".format("\t".join(map(str, ssm))))
+			f.write("{0}\n".format("\t".join(list(map(str, ssm)))))
 		
 def get_ssm_information(ssm_list, info_list):
 	for ssm in ssm_list:
@@ -371,7 +371,7 @@ def write_lineages_to_result_file(file_name, my_lineages, test=False):
 def get_CNV_lines_from_lineages(cnv_list):
 	cnvs_line = []
 
-	for i in xrange(len(cnv_list)):
+	for i in range(len(cnv_list)):
 		state = ""
 		if cnv_list[i].change >= 1:
 			state = "+{0}".format(str(cnv_list[i].change))
@@ -387,7 +387,7 @@ def get_CNV_lines_from_lineages(cnv_list):
 def get_SSM_lines_from_lineages(ssm_list):
 	ssms_line = []
 
-	for i in xrange(len(ssm_list)):
+	for i in range(len(ssm_list)):
 		current_ssm = ("{0},{1},{2}".format(ssm_list[i].seg_index, 
 			ssm_list[i].chr, ssm_list[i].pos))
 		# if SSM is influenced by CN gain in same lineage, the phase of the gain is added
@@ -403,7 +403,7 @@ def get_SSM_lines_from_lineages(ssm_list):
 def get_SNP_line_from_lineage(snp_list):
 	snps = []
 
-	for i in xrange(len(snp_list)):
+	for i in range(len(snp_list)):
 		snps.append("{0},{1},{2}".format(snp_list[i].seg_index, snp_list[i].chr, 
 			snp_list[i].pos))
 	return ';'.join(snps)
@@ -432,7 +432,7 @@ def read_result_file(file_name, phasing_not_known=False):
 			#print tag
 			if tag.startswith("@"):
 				# lineage is stored in list
-				if my_lineage != None:
+				if my_lineage is not None:
 					lineages_list.append(my_lineage)
 					lineage_index += 1
 				#print "new lineage"
@@ -680,7 +680,7 @@ def get_sublineages_list_from_result_file(line_part):
 	if line_part == "":
 		return []
 	sublins=line_part.split(";")
-	return map(int,sublins)
+	return list(map(int,sublins))
 
 def get_CNV_list_from_result_file(line_part, phase=-1):
 	cnv_list = []
@@ -998,7 +998,7 @@ def write_simulation_info(lineages_file, segment_number, snp_number,
 			new_version, overdispersion, coverage_overdispersion))
 		f.write('frequency_overdispersion: {0}\nCNV_assignment: {1}\nSNP_assignment: {2}\n'.format(
 			frequency_overdispersion, CNV_assignment, SNP_assignment))
-                f.write('SSM_assignment: {0}\nallele_specific: {1}\nSSM_num_per_unit: {2}\n'
+		f.write('SSM_assignment: {0}\nallele_specific: {1}\nSSM_num_per_unit: {2}\n'
 			'clonal CN frequency: {3}\nproportion plus 1 A: {4}\n'
 			'proportion plus 1 A and B: {5}\nproportion minus 1 B: {6}\n'
 			'proportion minus 1 A and B: {7}\nproportion copy-neutral LOH: {8}\n'
@@ -1025,7 +1025,7 @@ def read_lineages_tree(file_name, segment_number):
 		for line in f:
 			(sublins, freq) = (line.rstrip()).split(';')
 			if (len(sublins) > 0):
-				sublins = map(int, sublins.split(','))
+				sublins = list(map(int, sublins.split(',')))
 			else:
 				sublins = []
 			lin.append(lineage_for_data_simulation.Lineage_Simulation(sublins, 
@@ -1180,7 +1180,7 @@ def read_fixed_value_file(fixed_file):
 					fixed_value_list.extend(line_list)
 
 	# convert all entries to float
-	return (map(float, fixed_value_list), unfixed_start, unfixed_stop)
+	return (list(map(float, fixed_value_list), unfixed_start, unfixed_stop))
 
 
 # creates a temporary random file name
@@ -1251,7 +1251,7 @@ def write_fixed_value_file(data, output_file, row_num, column_num, info, unfixed
 			start_index = stop_index
 			stop_index = start_index + column_num
 			# take parts of data list
-			output.write("\t".join(map(str,data[start_index:stop_index])))
+			output.write("\t".join(list(map(str,data[start_index:stop_index]))))
 			# decrease number of columns
 			column_num -= 1
 
@@ -1393,7 +1393,7 @@ def SNP_count_to_BAF(input_SNPs_file, index, output_BAF_file, test=False):
 			for line_num, line in enumerate(input_file, start = 1):
 				# tab is seperator for entries. split line on seperator and convert all 
 				# entries to int
-				split_line = map(int, line.rstrip("\n").split("\t"))
+				split_line = list(map(int, line.rstrip("\n").split("\t")))
 				# get variance and reference from index
 				if index.has_key((split_line[0], split_line[1])):
 					(reference, variance) = index[(split_line[0], split_line[1])]
@@ -1470,7 +1470,7 @@ def SNP_count_to_LogR_new(input_SNPs_file, output_LogR_file, avg_coverage=0, nor
 	if normal:
 		logR = [my_compute_LogR(cov, avg_coverage) for cov in coverage]
 	else:
-		logR = [my_compute_LogR(coverage[i], normal_coverage[i]) for i in xrange(len(coverage))]  
+		logR = [my_compute_LogR(coverage[i], normal_coverage[i]) for i in range(len(coverage))]  
 	my_median = submarine.median_list(logR)
 	logR_star = [my_compute_LogR_star(logR_value, my_median) for logR_value in logR]
 
@@ -1478,7 +1478,7 @@ def SNP_count_to_LogR_new(input_SNPs_file, output_LogR_file, avg_coverage=0, nor
 	with open(output_LogR_file, "w") as f:
 		f.write("\tchrs\tpos\tsample")
 		[f.write("\n{0}\t{1}\t{2}\t{3}".format(i+1, input_lines[i+1].split("\t")[0],
-			input_lines[i+1].split("\t")[1], logR_star[i])) for i in xrange(len(input_lines) - 1)]
+			input_lines[i+1].split("\t")[1], logR_star[i])) for i in range(len(input_lines) - 1)]
 
 
 
@@ -1502,7 +1502,7 @@ def SNP_count_to_LogR(input_SNPs_file, avg_coverage, output_LogR_file, test=Fals
 			for line_num, line in enumerate(input_file, start = 1):
 				# tab is seperator for entries. split line on seperator and convert all 
 				# entries to int
-				split_line = map(int, line.rstrip("\n").split("\t"))
+				split_line = list(map(int, line.rstrip("\n").split("\t")))
 				# compute LogR 
 				sample = submarine.compute_LogR(split_line[6], avg_coverage)
 
@@ -1541,7 +1541,7 @@ def clean_SNP_count_naive(input_SNP_file, index, output_clean_file, test=False):
 			cleaned_snps = False
 			cleaned_snps_gt_5 = False
 			for line in input_file:
-				split_line = map(int, line.rstrip("\n").split("\t"))
+				split_line = list(map(int, line.rstrip("\n").split("\t")))
 				# check if key is in index
 				if index.has_key((split_line[0], split_line[1])):
 					#get variance and reference from index
@@ -1602,8 +1602,7 @@ def remove_positions_in_normal_with_low_coverage(normal_file_input,
 					output_file.write(line)
 				else:
 					(chro, pos, ca, cc, cg, ct, cov) = (
-						map(int, 
-						line.rstrip().split('\t')))
+						list(map(int, line.rstrip().split('\t'))))
 					# if coverage of line is too low
 					# the current chromosome and position
 					# are written to the list
@@ -1636,8 +1635,7 @@ def remove_positions_from_list(file_input, file_output, removed_positions,
 					output_file.write(line)
 				else:
 					(chro, pos, ca, cc, cg, ct, cov) = (
-						map(int,
-						line.rstrip().split('\t')))
+						list(map(int, line.rstrip().split('\t'))))
 					# if current line corresponds to a 
 					# position in the list with positions
 					# to be removed
@@ -1671,7 +1669,7 @@ def remove_single_positions_with_low_coverage(input_file_name,
 					output_file.write(line)
 					first_line = False
 				else:
-					(chro, pos, ca, cc, cg, ct, cov) = (map(int,line.rstrip().split('\t')))
+					(chro, pos, ca, cc, cg, ct, cov) = (list(map(int,line.rstrip().split('\t'))))
 					# if coverage is less than the cutoff save position of SNP and the line
 					if cov <= coverage_cutoff:
 						smaller_coverage = True

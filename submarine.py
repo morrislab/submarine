@@ -26,7 +26,7 @@ def count_ambiguous_relationships(z_matrix):
 	ambi_num = 0
 
 	# forst row skipt because it does not contain ambiguous relationships by definition
-	for k in xrange(1,len(z_matrix)):
+	for k in range(1,len(z_matrix)):
 		ambi_num += len(np.where(z_matrix[k] == 0)[0])
 
 	return ambi_num
@@ -45,7 +45,7 @@ def update_ancestry_w_preprocessing(my_lineages, z_matrix, ppm, seg_num, value, 
 		ssm_infl_cnv_same_lineage)
 
 	# get definite parents and available frequencies
-	frequencies = np.asarray([my_lineages[i].freq for i in xrange(len(my_lineages))])
+	frequencies = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	defp, avFreqs = get_definite_parents_available_frequencies(frequencies, ppm)
 
 	# copy
@@ -108,7 +108,7 @@ def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num):
 	# propagate sum rule
 	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], CNVs, triplets_list)
 	zmco = zmcos[0]
-	frequencies = np.asarray([my_lineages[i].freq for i in xrange(len(my_lineages))])
+	frequencies = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	try:
 		sum_rule_worked, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms)
@@ -131,14 +131,14 @@ def get_definite_parents_available_frequencies(freqs, ppm):
 
 	# compute definite parents
 	defp = np.asarray([-1] * lin_num)
-	for k in xrange(1, lin_num):
+	for k in range(1, lin_num):
 		pp = np.where(ppm[k] == 1)[0]
 		if len(pp) == 1:
 			defp[k] = pp[0]
 
 	# compute available freq
 	avFreqs = copy.deepcopy(freqs)
-	for k in xrange(lin_num):
+	for k in range(lin_num):
 		children = np.where(defp == k)[0]
 		for child in children:
 			avFreqs[k] = np.subtract(avFreqs[k], freqs[child])
@@ -151,7 +151,7 @@ def build_sublin_lists_from_parental_info(mylins, parental_list):
 	lin_num = len(mylins)
 
 	# initialize lists of cancerous lineages with their children
-	for i in xrange(1, len(parental_list)):
+	for i in range(1, len(parental_list)):
 		mylins[parental_list[i]].sublins.append(i+1)
 
 	# if there are only three lineages, lin 1 can only have lin 2 as child and lin 0 is done per definition
@@ -160,9 +160,9 @@ def build_sublin_lists_from_parental_info(mylins, parental_list):
 		return
 	
 	# go backwards through sublins lists and add descendants of children
-	for i in xrange(lin_num-3, 0, -1):
+	for i in range(lin_num-3, 0, -1):
 		children_num = len(mylins[i].sublins)
-		for c in xrange(children_num):
+		for c in range(children_num):
 			mylins[i].sublins.extend(mylins[mylins[i].sublins[c]].sublins)
 		mylins[i].sublins.sort()
 
@@ -175,7 +175,7 @@ def get_lca(k, kprime, z_matrix):
 	if z_matrix[k][kprime] == 1:
 		return k
 
-	for kstar in xrange(k-1, -1, -1):
+	for kstar in range(k-1, -1, -1):
 		if z_matrix[kstar][k] == 1 and z_matrix[kstar][kprime] == 1:
 			return kstar
 
@@ -183,7 +183,7 @@ def get_lca(k, kprime, z_matrix):
 def get_lca_from_multiple_lineages(possible_parents, z_matrix):
 	lca = get_lca(possible_parents[0], possible_parents[1], z_matrix)
 
-	for i in xrange(2, len(possible_parents)):
+	for i in range(2, len(possible_parents)):
 		lca_new = get_lca(lca, possible_parents[i], z_matrix)
 		lca = lca_new
 
@@ -204,15 +204,15 @@ def check_untightess_zmatrix(z_matrix, z_matrix_list, total_number):
 	tightness_matrix = np.zeros(lin_num * lin_num * 3).reshape(lin_num, lin_num, 3)
 
 	# note where original Z-matrix is ambiguous
-	for k in xrange(lin_num-1):
-		for k_prime in xrange(k, lin_num):
+	for k in range(lin_num-1):
+		for k_prime in range(k, lin_num):
 			if z_matrix[k][k_prime] == 0:
 				tightness_matrix[k][k_prime][0] = 1
 
 	# check all unambiguous Z-matrices
 	for unam_m in z_matrix_list:
-		for k in xrange(lin_num-1):
-			for k_prime in xrange(k, lin_num):
+		for k in range(lin_num-1):
+			for k_prime in range(k, lin_num):
 				# if original matrix is ambiguous at position
 				if tightness_matrix[k][k_prime][0] == 1:
 					# current matrix has present relationship
@@ -226,8 +226,8 @@ def check_untightess_zmatrix(z_matrix, z_matrix_list, total_number):
 						raise Exception("Relationship has to be either present or absent.")
 
 	# check whether both values were used for ambiguous entries
-	for k in xrange(lin_num-1):
-		for k_prime in xrange(k, lin_num):
+	for k in range(lin_num-1):
+		for k_prime in range(k, lin_num):
 			if tightness_matrix[k][k_prime][0] == 1:
 				if tightness_matrix[k][k_prime][1] == 1 and tightness_matrix[k][k_prime][2] == 1:
 					continue
@@ -246,7 +246,7 @@ def check_untightess_zmatrix(z_matrix, z_matrix_list, total_number):
 def upper_bound_number_reconstructions(ppm):
 	if ppm[0][0] == 1:
 		raise Exception("Wrong format of possible parent matrix.")
-	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in xrange(1, len(ppm))])
+	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
 def depth_first_search(lineage_file, seg_num_file, z_matrix_file, output_prefix, only_number=True, count_threshold=25000, overwrite=False):
 	if overwrite == False:
@@ -306,12 +306,12 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 		## create list with Z-matrix and Co objects
 		#zmco_list = [zmco]
 		## iterate through complete matrix
-		#for k in xrange(lin_num-1):
-		#	for k_prime in xrange(k+1, lin_num):
+		#for k in range(lin_num-1):
+		#	for k_prime in range(k+1, lin_num):
 		#		# create new list for next round
 		#		new_zmco_list = []
 		#		# iterate through all Z-matrices in list
-		#		for i in xrange(len(zmco_list)):
+		#		for i in range(len(zmco_list)):
 		#			# if current entry is ambiguous, fork matrix
 		#			if zmco_list[i].z_matrix[k][k_prime] == 0:
 		#				# copy current Z-matrix and co object for setting entry to 1 (relationship present)
@@ -334,7 +334,7 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 		#		zmco_list = new_zmco_list
 
 		## check sum rule for all reconstruction
-		#is_sum_rule_fulfilled = [check_sum_rule(my_lineages, zmco_list[i].z_matrix) for i in xrange(len(zmco_list))]
+		#is_sum_rule_fulfilled = [check_sum_rule(my_lineages, zmco_list[i].z_matrix) for i in range(len(zmco_list))]
 		## only keep reconstructions that fulfill the sum rule
 		#zmco_list_fulfills_sum_rule = list(compress(zmco_list, is_sum_rule_fulfilled))
 
@@ -350,7 +350,7 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 		if ppm is not None:
 			last = lin_num - 1
 			# get definite parents and available frequencies
-			linFreqs = np.asarray([my_lineages[i].freq for i in xrange(len(my_lineages))])
+			linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 			defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
 
 		return recursive_number_ambiguous_recs(0, 0, lin_num, zmco, my_lineages, 0, filename=filename, count_threshold=count_threshold,
@@ -364,8 +364,8 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 	# tracks whether this is the last recursive call
 	last_call = True
 	# iterate through matrix, starting after Z[k][k_prime_checked]
-	for k in xrange(k_current, lin_num-1):
-		for k_prime in xrange(k+1, lin_num):
+	for k in range(k_current, lin_num-1):
+		for k_prime in range(k+1, lin_num):
 			# only check entry if it wasn't checked already
 			if k == k_current and k_prime <= k_prime_checked:
 				continue
@@ -426,10 +426,10 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 def check_sum_rule(my_lineages, z_matrix):
 	sample_size = len(my_lineages[0].freq)
 	# check all lineages that can have more than one child
-	for k in xrange(len(my_lineages)-2):
+	for k in range(len(my_lineages)-2):
 		children = get_children(z_matrix, k)	
 		# check whether sum rule is fulfilled for all samples
-		for n in xrange(sample_size):
+		for n in range(sample_size):
 			if my_lineages[k].freq[n] + cons.EPSILON_FREQUENCY < sum([my_lineages[kp].freq[n] for kp in children]):
 				return False
 	return True
@@ -444,8 +444,8 @@ def check_CN_influence_user_constraints(z_matrix, lineages, user_z=None):
 	CN_changes_hash, SSMs_hash = create_CN_changes_and_SSM_hash_for_LDR(lineages)
 
 	# iterate through Z-matrix
-	for k in xrange(1, lin_num-1):
-		for k_prime in xrange(k+1, lin_num):
+	for k in range(1, lin_num-1):
+		for k_prime in range(k+1, lin_num):
 			# check CN influecne, if a 1 is in Z-matrix
 			if z_matrix[k][k_prime] == 1:
 				# if no CN influence is present
@@ -552,8 +552,8 @@ def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None
 	# create Z-matrix
 	z_matrix = get_Z_matrix(my_lins)[0]
 	# set all ambiguous entries to absent for now
-	for k in xrange(1, lin_num):
-		for kp in xrange(k+1, lin_num):
+	for k in range(1, lin_num):
+		for kp in range(k+1, lin_num):
 			if z_matrix[k][kp] == 0:
 				z_matrix[k][kp] = -1
 	# get segment number
@@ -561,11 +561,11 @@ def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None
 		for line in f:
 			seg_num = int(line.rstrip())
 	# get user constraints
-        user_z = None
-        if userZ_file is not None:
+	user_z = None
+	if userZ_file is not None:
 	    user_z = oio.read_userZ(userZ_file, lin_num)
-        user_ssm = None
-        if userSSM_file is not None:
+	user_ssm = None
+	if userSSM_file is not None:
 	    user_ssm = oio.read_userSSM(userSSM_file, lin_num, seg_num)
 
 	# if CNAs are given, subclonal reconstruction has to be valid
@@ -591,8 +591,8 @@ def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None
 def convert_zmatrix_0_m1(z_matrix):
 	lin_num = len(z_matrix)
 	new_z_matrix = np.ones(lin_num * lin_num).reshape(lin_num, lin_num).tolist()
-	for k in xrange(lin_num):
-		for k2 in xrange(lin_num):
+	for k in range(lin_num):
+		for k2 in range(lin_num):
 			if z_matrix[k][k2] == 0:
 				new_z_matrix[k][k2] = "?"
 			elif z_matrix[k][k2] == -1:
@@ -604,8 +604,8 @@ def convert_zmatrix_0_m1(z_matrix):
 def convert_zmatrix_for_internal_use(z_matrix):
 	assert z_matrix[0][0] == 0
 	lin_num = len(z_matrix)
-	for k in xrange(lin_num):
-		for k2 in xrange(lin_num):
+	for k in range(lin_num):
+		for k2 in range(lin_num):
 			if z_matrix[k][k2] == 0:
 				z_matrix[k][k2] = -1
 			elif z_matrix[k][k2] == "?":
@@ -624,8 +624,8 @@ def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=No
 	lin_num = len(freqs) + 1
 
 	# create normal and other lineages, all with correct frequencies
-	my_lins = ([lineage.Lineage([i for i in xrange(1, lin_num)], [1.0] * freq_num, [], [], [], [], [], [], [], [])] +
-		[lineage.Lineage([], freqs[i-1], [], [], [], [], [], [], [], []) for i in xrange(1, lin_num)])
+	my_lins = ([lineage.Lineage([i for i in range(1, lin_num)], [1.0] * freq_num, [], [], [], [], [], [], [], [])] +
+		[lineage.Lineage([], freqs[i-1], [], [], [], [], [], [], [], []) for i in range(1, lin_num)])
 
 	# get sublinages of cancerous lineages
 	if parents_file is not None:
@@ -640,7 +640,7 @@ def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=No
 			else:
 				my_lins[cna.lineage].cnvs_b.append(cna)
 		# sort CNAs
-		for k in xrange(1, lin_num):
+		for k in range(1, lin_num):
 			my_lins[k].cnvs_a = sort_segments(my_lins[k].cnvs_a)
 			my_lins[k].cnvs_b = sort_segments(my_lins[k].cnvs_b)
 
@@ -655,7 +655,7 @@ def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=No
 			else:
 				my_lins[ssm.lineage].ssms.append(ssm)
 		# sort SSMs per lineage
-		for k in xrange(1, lin_num):
+		for k in range(1, lin_num):
 			my_lins[k].ssms_a = sorted(my_lins[k].ssms_a, key = lambda x: (x.chr, x.pos))
 			my_lins[k].ssms_b = sorted(my_lins[k].ssms_b, key = lambda x: (x.chr, x.pos))
 
@@ -697,7 +697,7 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 	        z_matrix, zero_count, lineage_num, CNVs, present_ssms, z_matrix_after_CN_influence_check)
 	# check for pairwise and easy triplet-wise constraints that lead to absent relationships
 	logging.debug("propagate pairwise and easy-triplet wise constraints")
-        zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+	zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
 	z_matrix_list, z_matrix_fst_rnd, triplets_list = (
 	        post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
 	        matrix_splitting=False, first_absence_propagation=True, CNVs=CNVs, present_ssms=present_ssms, gain_num=gain_num,
@@ -708,7 +708,7 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 	if len(zmcos) > 1:
 		raise eo.MyException("zmcos should only have one entry!")
 	zmco = zmcos[0]
-	frequencies = np.asarray([my_lineages[i].freq for i in xrange(len(my_lineages))])
+	frequencies = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms)
@@ -725,87 +725,87 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 # processes each lineage and looks whether lineage has only one possible parent, this than becomes the
 #   definite parent, updates follow
 def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
-    lin_num = len(zmco.z_matrix)
-    # available frequencies are initialized
-    avFreqs = copy.deepcopy(linFreqs)
-    # get possible parents of all lineages
-    ppm = get_possible_parents(zmco.z_matrix)
-    # create array of definite parents
-    defparent = [-1] * lin_num
+	lin_num = len(zmco.z_matrix)
+	# available frequencies are initialized
+	avFreqs = copy.deepcopy(linFreqs)
+	# get possible parents of all lineages
+	ppm = get_possible_parents(zmco.z_matrix)
+	# create array of definite parents
+	defparent = [-1] * lin_num
+	
+	# go over all lineages
+	for k in range(1, lin_num):
 
-    # go over all lineages
-    for k in xrange(1, lin_num):
+		possible_parents = np.where(ppm[k] == 1)[0]
+		# iterate over all possible parents
+		for k_star in possible_parents:
+			# if k_star cannot be a possible parent
+			if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY).any():
+				ppm[k][k_star] = 0
 
-	possible_parents = np.where(ppm[k] == 1)[0]
-	# iterate over all possible parents
-	for k_star in possible_parents:
-		# if k_star cannot be a possible parent
-		if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY).any():
-			ppm[k][k_star] = 0
+				posdes = get_possible_descendants(zmco.z_matrix, k_star, k)
+				# if no possible descendant of k_star is possible parent of k
+				if sum([ppm[k][k_circ] for k_circ in posdes]) == 0:
+					update_ancestry(-1, k_star, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
+						loss_num, CNVs, present_ssms)
 
-			posdes = get_possible_descendants(zmco.z_matrix, k_star, k)
-			# if no possible descendant of k_star is possible parent of k
-			if sum([ppm[k][k_circ] for k_circ in posdes]) == 0:
-				update_ancestry(-1, k_star, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-					loss_num, CNVs, present_ssms)
-
-	possible_parents = np.where(ppm[k] == 1)[0]
-	# if k has only one possible parent k_star
-	if len(possible_parents) == 1 and defparent[k] == -1:
-		make_def_child(possible_parents[0], k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-			loss_num, CNVs, present_ssms)
-	elif len(possible_parents) < 1 and defparent[k] == -1:
-		raise eo.NoParentsLeft("There are no possible parents for lineage {0}.".format(k))
+		possible_parents = np.where(ppm[k] == 1)[0]
+		# if k has only one possible parent k_star
+		if len(possible_parents) == 1 and defparent[k] == -1:
+			make_def_child(possible_parents[0], k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
+				loss_num, CNVs, present_ssms)
+		elif len(possible_parents) < 1 and defparent[k] == -1:
+			raise eo.NoParentsLeft("There are no possible parents for lineage {0}.".format(k))
 
 
-    for k in xrange(2, lin_num):
-    	# if k doesnt't have definite parent yet
-	if defparent[k] == -1:
-	    # ensure that k is descendant of definite ancetsors
-	    possible_parents = np.where(ppm[k] == 1)[0]
-	    lca = get_lca_from_multiple_lineages(possible_parents, zmco.z_matrix)
-	    update_ancestry(1, lca, k, lin_num-1, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num,
-	    	loss_num, CNVs, present_ssms)
-
-    return True, avFreqs, ppm
+	for k in range(2, lin_num):
+		# if k doesnt't have definite parent yet
+		if defparent[k] == -1:
+			# ensure that k is descendant of definite ancetsors
+			possible_parents = np.where(ppm[k] == 1)[0]
+			lca = get_lca_from_multiple_lineages(possible_parents, zmco.z_matrix)
+			update_ancestry(1, lca, k, lin_num-1, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num,
+				loss_num, CNVs, present_ssms)
+	
+	return True, avFreqs, ppm
 
 def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
-    # available frequency gets adapted for all samples n
-    avFreqs[kstar] = np.subtract(avFreqs[kstar], linFreqs[k])
-
-    # available frequency is not allowed to be smaller than 0
-    if np.where(avFreqs[kstar] + cons.EPSILON_FREQUENCY < 0, True, False).any():
-	raise eo.AvailableFreqLowerZero("Lineage {0} should become parent of lineage {1}, however there is not available frequency left.".format(
-		kstar, k))
-
-    defparent[k] = kstar
-
-    # already processed k' which is possible child of kstar but not its definite child
-    possible_children = get_possible_children_smaller_last(ppm, kstar, last, defparent)
-    while len(possible_children) > 0:
-    	kprime = possible_children.pop(0)
+	# available frequency gets adapted for all samples n
+	avFreqs[kstar] = np.subtract(avFreqs[kstar], linFreqs[k])
 	
-	# if k* cannot be possible parent of k'
-	if np.greater(linFreqs[kprime], avFreqs[kstar]+cons.EPSILON_FREQUENCY).any():
-	    ppm[kprime][kstar] = 0
-
-	    posdes = get_possible_descendants(zmco.z_matrix, kstar, kprime)
-	    # if no possible descendant of k* is possible parent of k'
-	    if sum([ppm[kprime][k_circ] for k_circ in posdes]) == 0:
-	    	update_ancestry(-1, kstar, kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, 
-			CNVs, present_ssms)
-
-	    possible_parents = np.where(ppm[kprime] == 1)[0]
-	    # if k' has only one possible parent k_circ, which is not yet definite parent
-	    if len(possible_parents) == 1 and defparent[kprime] == -1:
-	    	make_def_child(possible_parents[0], kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-			loss_num, CNVs, present_ssms)
-
-	possible_children = get_possible_children_smaller_last_greater_kprime(ppm, kstar, kprime, last, defparent)
-
-    update_ancestry(1, kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-
-    return True
+	# available frequency is not allowed to be smaller than 0
+	if np.where(avFreqs[kstar] + cons.EPSILON_FREQUENCY < 0, True, False).any():
+		raise eo.AvailableFreqLowerZero("Lineage {0} should become parent of lineage {1}, however there is not available frequency left.".format(
+	    		kstar, k))
+	
+	defparent[k] = kstar
+	
+	# already processed k' which is possible child of kstar but not its definite child
+	possible_children = get_possible_children_smaller_last(ppm, kstar, last, defparent)
+	while len(possible_children) > 0:
+		kprime = possible_children.pop(0)
+	    
+		# if k* cannot be possible parent of k'
+		if np.greater(linFreqs[kprime], avFreqs[kstar]+cons.EPSILON_FREQUENCY).any():
+			ppm[kprime][kstar] = 0
+			
+			posdes = get_possible_descendants(zmco.z_matrix, kstar, kprime)
+			# if no possible descendant of k* is possible parent of k'
+			if sum([ppm[kprime][k_circ] for k_circ in posdes]) == 0:
+				update_ancestry(-1, kstar, kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, 
+			    	CNVs, present_ssms)
+			
+			possible_parents = np.where(ppm[kprime] == 1)[0]
+			# if k' has only one possible parent k_circ, which is not yet definite parent
+			if len(possible_parents) == 1 and defparent[kprime] == -1:
+		    		make_def_child(possible_parents[0], kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
+					loss_num, CNVs, present_ssms)
+		
+		possible_children = get_possible_children_smaller_last_greater_kprime(ppm, kstar, kprime, last, defparent)
+	
+	update_ancestry(1, kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+	
+	return True
 
 def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFreqs=None, avFreqs=None, zmco=None, seg_num=None, 
 	zero_count=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None):
@@ -839,12 +839,12 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 
 	# if ancestor-descendant relationship gets transformed to present one
 	if value == 1:
-        	# move unphased SSMs if necessary
-        	try:
-        	    phasing_allows_relation(kstar, k, zmco.matrix_after_first_round, zmco.present_ssms, zmco.CNVs, value)
-        	except eo.ADRelationNotPossible as e:
-		    raise e
-        	move_unphased_SSMs_if_necessary(kstar, k, zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round, value)
+		# move unphased SSMs if necessary
+		try:
+			phasing_allows_relation(kstar, k, zmco.matrix_after_first_round, zmco.present_ssms, zmco.CNVs, value)
+		except eo.ADRelationNotPossible as e:
+			raise e
+		move_unphased_SSMs_if_necessary(kstar, k, zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round, value)
 		# propagte absence rules
 		if last is not None:
 			dummy_zero_count = len(zmco.z_matrix)*len(zmco.z_matrix)
@@ -864,15 +864,12 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 
         # transitivity update with parent checking
 	dummy_zero_count = len(zmco.z_matrix) * len(zmco.z_matrix)
-        try:
-            update_Z_matrix_iteratively(zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
-                        (kstar, k), zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round,
-                        last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent)
-        except eo.MyException as e:
-            raise e
-		
-
-
+	try:
+		update_Z_matrix_iteratively(zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
+			(kstar, k), zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round,
+			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent)
+	except eo.MyException as e:
+		raise e
 
 # returns all possible children of lineage kstar that have lower index than last (already processed) that are not its definite children
 def get_possible_children_smaller_last(ppm, kstar, last, defparent):
@@ -900,14 +897,14 @@ def get_possible_parents(z_matrix):
 	ppm = np.zeros((lin_num, lin_num))
 
 	# go through Z-matrix
-	for kprime in xrange(1, lin_num):
+	for kprime in range(1, lin_num):
             get_possible_parents_per_child(z_matrix, ppm, kprime)
 
 	return ppm
     
 # helping function of get_possible_parents
 def get_possible_parents_per_child(z_matrix, ppm, kprime):
-	for k in xrange(kprime-1, -1, -1):
+	for k in range(kprime-1, -1, -1):
 		# if both lineages are in an umbiguous relationship, k is a potential parent
 		if z_matrix[k][kprime] == 0:
 			ppm[kprime][k] = 1
@@ -919,7 +916,7 @@ def get_possible_parents_per_child(z_matrix, ppm, kprime):
 
 # if k became a new ancestor of k', lineages with k^\circ < k cannot be possible parents of k' anymore
 def update_possible_parents_per_child(z_matrix, ppm, k, kprime):
-	for kcirc in xrange(k-1, -1, -1):
+	for kcirc in range(k-1, -1, -1):
 		ppm[kprime][kcirc] = 0
 
 # returns True if lineage k* has (potential) descendants that are still in possible parent-child relationship with lineage k
@@ -927,7 +924,7 @@ def update_possible_parents_per_child(z_matrix, ppm, k, kprime):
 def des_are_potential_parents(k_star, k, zmatrix, ppm):
     lin_num = len(zmatrix)
     # get all (potential) descendants of lineage k*
-    descendats = [des for des in xrange(k_star, k) if (zmatrix[k_star][des] == 1 or zmatrix[k_star][des] == 0)]
+    descendats = [des for des in range(k_star, k) if (zmatrix[k_star][des] == 1 or zmatrix[k_star][des] == 0)]
 
     for des in descendats:
         # check whether descendant is in a possible parent-child relationship
@@ -938,7 +935,7 @@ def des_are_potential_parents(k_star, k, zmatrix, ppm):
 
 def create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, present_ssms_list, CNVs, triplets_list):
 	zmcos = []
-	for i in xrange(len(z_matrix_list)):
+	for i in range(len(z_matrix_list)):
 		zmco = Z_Matrix_Co(z_matrix=z_matrix_list[i], triplet_xys=triplets_list[i][0], 
 			triplet_ysx=triplets_list[i][1], triplet_xsy=triplets_list[i][2], 
 			present_ssms=present_ssms_list[i], CNVs=CNVs, matrix_after_first_round=z_matrix_fst_rnd)
@@ -951,14 +948,14 @@ def get_children(z_matrix, k):
 	children = []
 
 	# check all potential descendant of k
-	for k_prime in xrange(k+1, lin_num):
+	for k_prime in range(k+1, lin_num):
 		# k isn't an ancestor of k'
 		if z_matrix[k][k_prime] != 1:
 			continue
 		
 		k_prime_potential_child = True
 		# check all lineages that could be between k and k'
-		for k_star in xrange(k+1, k_prime):
+		for k_star in range(k+1, k_prime):
 			# k' has another ancestor k*>k, thus k can't be the parent
 			if z_matrix[k_star][k_prime] == 1:
 				k_prime_potential_child = False
@@ -988,9 +985,9 @@ def check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lineage
 	triplet_xsy = {}
 
 	# iterate through Z-matrix
-	for x in xrange(lineage_num-3, 0, -1):
-		for y in xrange(lineage_num-2, x, -1):
-			for s in xrange(lineage_num-1, y, -1):
+	for x in range(lineage_num-3, 0, -1):
+		for y in range(lineage_num-2, x, -1):
+			for s in range(lineage_num-1, y, -1):
 				# update Z triplet
 				changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
 					z_matrix[x][y], z_matrix[y][s], z_matrix[x][s]))
@@ -1063,7 +1060,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
         	#        # if lineage k is possible parent
         	#        if ppm[kprime][k] == 1:
         	#            # update ppm for  lineage k'
-		#	    for my_i in xrange(k):
+		#	    for my_i in range(k):
 		#	    	ppm[kprime][my_i] = 0
         	#    # lineages are not in ADR
         	#    elif new_z_entry == -1:
@@ -1135,7 +1132,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# check whether lowest triplets are influenced by change
 	try:
 		# for all triplets, in which the changed value is at the xy position
-		for s in sorted(triplet_xys[first_index][second_index].keys(), reverse=True):
+		for s in sorted(list(triplet_xys[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
 			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
 				z_matrix[first_index][second_index], z_matrix[second_index][s], z_matrix[first_index][s]))
@@ -1182,7 +1179,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# check whether middle triplets are influenced by change
 	try:
 		# for all triplets, in which the changed value is at the xs position
-		for y in sorted(triplet_xsy[first_index][second_index].keys(), reverse=True):
+		for y in sorted(list(triplet_xsy[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
 			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
 				z_matrix[first_index][y], z_matrix[y][second_index], z_matrix[first_index][second_index]))
@@ -1228,7 +1225,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# check whether highest triplets are influenced by change
 	try:
 		# for all triplets, in which the changed value is at the ys position
-		for x in sorted(triplet_ysx[first_index][second_index].keys(), reverse=True):
+		for x in sorted(list(triplet_ysx[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
 			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
 				z_matrix[x][first_index], z_matrix[first_index][second_index], z_matrix[x][second_index]))
@@ -1286,10 +1283,10 @@ def remove_triplet_from_hash(t_hash, i_1, i_2, i_3):
 	try:
 		del t_hash[i_1][i_2][i_3]
 		# if first two indices aren't part of another triplet, delete hash for second index
-		if len(t_hash[i_1][i_2].keys()) == 0:
+		if len(list(t_hash[i_1][i_2].keys())) == 0:
 			del t_hash[i_1][i_2]
 			# if first index isn't part of another triplet, delete it from hash
-			if len(t_hash[i_1].keys()) == 0:
+			if len(list(t_hash[i_1].keys())) == 0:
 				del t_hash[i_1]
 	# triplet was already removed
 	except KeyError:
@@ -1418,8 +1415,8 @@ def update_Z_triplet(x, y, s):
 def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy):
     lin_num = len(my_lineages)
 
-    for k in xrange(1, lin_num):
-        for k_prime in xrange(k+1, lin_num):
+    for k in range(1, lin_num):
+        for k_prime in range(k+1, lin_num):
             # if relationship is ambiguous, check whether crossing rule is fulfilled
             if z_matrix[k][k_prime] == 0:
                 no_violation = (np.asarray(my_lineages[k].freq) >= np.asarray(my_lineages[k_prime].freq)).all()
@@ -1477,13 +1474,13 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 		# check SSM phasing as it can be unnecessary because ADRs were removed before
 		change_unnecessary_phasing(len(my_lineages), CNVs, present_ssms, ssm_infl_cnv_same_lineage, z_matrix, seg_num)
 
-        	# check crossing rule
-        	if check_crossing_rule and not (isinstance(my_lineages[0].freq, float) or isinstance(my_lineages[0].freq, int)):
-        	    zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+		# check crossing rule
+		if check_crossing_rule and not (isinstance(my_lineages[0].freq, float) or isinstance(my_lineages[0].freq, int)):
+			zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
 
 	# iterate through all segments the first time and
 	# only check the simple cases, that are directly to decide in the first run
-	for seg_index in xrange(seg_num):
+	for seg_index in range(seg_num):
 
 		# CN-free segment, check next segment
 		if gain_num[seg_index] == 0 and loss_num[seg_index] == 0:
@@ -1544,12 +1541,12 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			break
 		loss_A_num = 0
 		try:
-			loss_A_num = len(CNVs[seg_index][cons.LOSS][cons.A].keys())
+			loss_A_num = len(list(CNVs[seg_index][cons.LOSS][cons.A].keys()))
 		except KeyError:
 			pass
 		gain_B_num = 0
 		try:
-			gain_B_num = len(CNVs[seg_index][cons.GAIN][cons.B].keys())
+			gain_B_num = len(list(CNVs[seg_index][cons.GAIN][cons.B].keys()))
 		except KeyError:
 			pass
 		zero_count = check_1f_2d_2g_2j_losses_gains(loss_A_num, CNVs[seg_index], z_matrix, zero_count, 
@@ -1563,12 +1560,12 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			break
 		loss_B_num = 0
 		try:
-			loss_B_num = len(CNVs[seg_index][cons.LOSS][cons.B].keys())
+			loss_B_num = len(list(CNVs[seg_index][cons.LOSS][cons.B].keys()))
 		except KeyError:
 			pass
 		gain_A_num = 0
 		try:
-			gain_A_num = len(CNVs[seg_index][cons.GAIN][cons.A].keys())
+			gain_A_num = len(list(CNVs[seg_index][cons.GAIN][cons.A].keys()))
 		except KeyError:
 			pass
 		if zero_count == 0:
@@ -1589,10 +1586,10 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 	z_matrix_list = [np.asarray(z_matrix)]
 	triplets_list = [[triplet_xys, triplet_ysx, triplet_xsy]]
 	present_ssms_list = [present_ssms]
-        if matrix_splitting == True:
+	if matrix_splitting == True:
 		if path_lineages is not None:
 			raise eo.MyException("post_analysis_Z_matrix: matrix_splitting == True and path_lineages != None are not covered.")
-		for seg_index in xrange(seg_num):
+		for seg_index in range(seg_num):
 			check_1f_2d_2g_2j_losses_gains(loss_num[seg_index], CNVs[seg_index], None, None, 
 				None,  None, None, None,
 				first_run=False, mutations=cons.LOSS, z_matrix_fst_rnd=z_matrix_fst_rnd,
@@ -1624,14 +1621,14 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 # ssm_infl_cnv_same_lineage: list storing whether SSMs are influenced by CN gains in same lineage
 def change_unnecessary_phasing(lin_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage, z_matrix, seg_num, user_ssm=None):
 	# check all cancerous lineages
-	for k in xrange(1, lin_num):
+	for k in range(1, lin_num):
 		# get descendants
-		descendants = [k_prime for k_prime in xrange(k+1, lin_num) if z_matrix[k][k_prime] == 1]
+		descendants = [k_prime for k_prime in range(k+1, lin_num) if z_matrix[k][k_prime] == 1]
 		# get ancestors, normal lineage does not have to be considered here
-		ancestors = [k_star for k_star in xrange(1, k) if z_matrix[k_star][k] == 1]
+		ancestors = [k_star for k_star in range(1, k) if z_matrix[k_star][k] == 1]
 		
 		# check all segments
-		for seg_index in xrange(seg_num):
+		for seg_index in range(seg_num):
 
 			# get CN changes of segment
 			CNV_seg = CNVs[seg_index]
@@ -1771,7 +1768,7 @@ def adapt_lineages_after_Z_matrix_update(my_lineages, z_matrix_fst_rnd, z_matrix
 	#	information currently
 	# copy lineages for each Z-matrix, update the sublineages and the phasing
 	new_lineages_list = [create_updates_lineages(my_lineages, i, z_matrix_list, origin_present_ssms, present_ssms_list)
-		for i in xrange(len(z_matrix_list))]
+		for i in range(len(z_matrix_list))]
 
 	# update  my_lineages
 	my_lineages = new_lineages_list[0]
@@ -1805,9 +1802,9 @@ def update_SSM_phasing_after_Z_matrix_update(current_lineages, origin_present_ss
 	ssms_per_segments = get_ssms_per_segments(current_lineages, seg_num)
 
 	# compare all lineages
-	for lin_index in xrange(lin_num):
+	for lin_index in range(lin_num):
 		# compare all segments
-		for seg_index in xrange(seg_num):
+		for seg_index in range(seg_num):
 			# check all cases
 			# original: A: true, B: true, unphased: false
 			if (origin_present_ssms[seg_index][cons.A][lin_index] == True
@@ -1988,10 +1985,10 @@ def get_ssms_per_segments(my_lineages, seg_num):
 	lin_num = len(my_lineages)
 	
 	# create list
-	ssms_per_segments = [[] for _ in xrange(lin_num)]
+	ssms_per_segments = [[] for _ in range(lin_num)]
 
 	# fill list for all lineages
-	for i in xrange(lin_num):
+	for i in range(lin_num):
 		current_lin = my_lineages[i]
 		# create lists for each phase
 		ssms_per_segments[i] = [[], [], []]
@@ -2006,7 +2003,7 @@ def get_ssms_per_segments(my_lineages, seg_num):
 # seg_num: number of segments
 def get_ssms_per_segments_lineage_phase(my_ssms, seg_num):
 	# create list with empty list for each segment
-	ssms_per_segment_tmp = [[] for _ in xrange(seg_num)]
+	ssms_per_segment_tmp = [[] for _ in range(seg_num)]
 
 	# append each SSM to the segment list with its segment index
 	for ssm in my_ssms:
@@ -2040,18 +2037,18 @@ def get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms
 	ssms_b_index = [0] * lineage_num
 	ssms_index = [0] * lineage_num
 
-	for seg_index in xrange(seg_num):
+	for seg_index in range(seg_num):
 
 		# set temporary variables to 0
 		tmp_gain_num = 0
 		tmp_loss_num = 0
 		tmp_CNVs = {}
 		# store where SSMs appear in the lineages, whether they are phased to A, B or unphased
-		tmp_present_ssms = [[False] * lineage_num for _ in xrange(3)]
-		tmp_ssm_infl_cnv_same_lineage = [[False] * lineage_num for _ in xrange(2)]
+		tmp_present_ssms = [[False] * lineage_num for _ in range(3)]
+		tmp_ssm_infl_cnv_same_lineage = [[False] * lineage_num for _ in range(2)]
 
 		# go through all lineages to get current CN changes and to see where SSMs occur
-		for lin_index in xrange(1, lineage_num):
+		for lin_index in range(1, lineage_num):
 			# look at CN changes
 			tmp_gain_num, tmp_loss_num = add_CN_change_to_hash(my_lineages, lin_index, seg_index,
 				tmp_CNVs, tmp_gain_num, tmp_loss_num, cons.A, cnvs_a_index)
@@ -2101,7 +2098,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 		return zero_count
 
 	# both phases need to be affected if only one type of mutations is considered
-	if len(current_CNVs[mutations].keys()) != 2 and mutations_B is None:
+	if len(list(current_CNVs[mutations].keys())) != 2 and mutations_B is None:
 		return zero_count
 
 	if current_present_ssms:
@@ -2110,12 +2107,12 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 		lin_num = len(present_ssms_list[0][0][cons.UNPHASED])
 
 	# get affected lineages
-	affected_A = current_CNVs[mutations][cons.A].keys()
+	affected_A = list(current_CNVs[mutations][cons.A].keys())
 	if mutations_B is None:
-		affected_B = current_CNVs[mutations][cons.B].keys()
+		affected_B = list(current_CNVs[mutations][cons.B].keys())
 	else:
 		try:
-			affected_B = current_CNVs[mutations_B][cons.B].keys()
+			affected_B = list(current_CNVs[mutations_B][cons.B].keys())
 		except KeyError:
 			return zero_count
 	# get overlap of affected and path lineages
@@ -2139,7 +2136,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 					if mutations == cons.LOSS or mutations_B == cons.LOSS:
 						# check all lower lineages (case 1f)
 						if mutations_B is None:
-							for low_lin in xrange(k_prime_prime+1, lin_num):
+							for low_lin in range(k_prime_prime+1, lin_num):
 								if current_present_ssms[cons.UNPHASED][low_lin]:
 									zero_count, old_z_status = update_z_matrix_first_round_m1(
 										z_matrix,
@@ -2156,7 +2153,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										return zero_count
 						# check all lineage between (case 2j, 2j_new)
 						if mutations_B is None or (k_prime == lin_A and mutations == cons.LOSS) or (k_prime == lin_B and mutations_B == cons.LOSS):
-							for mid_lin in xrange(k_prime+1, k_prime_prime):
+							for mid_lin in range(k_prime+1, k_prime_prime):
 								if current_present_ssms[cons.UNPHASED][mid_lin]:
 									#zero_count, old_z_status_p = update_z_matrix_first_round_m1(
 									#	z_matrix,
@@ -2186,7 +2183,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										return zero_count
 
 					# check all higher lineages (case 2d and case 2g and case 2d_new)
-					for high_lin in xrange(1, k_prime):
+					for high_lin in range(1, k_prime):
 						if current_present_ssms[cons.UNPHASED][high_lin]:
 							# update relations of to k_prime AND k_prime_prime
 							zero_count, old_z_status_p = update_z_matrix_first_round_m1(z_matrix, 
@@ -2259,7 +2256,7 @@ def phasing_allows_relation(k, k_prime, matrix_after_first_round, present_ssms, 
 
 	# check all segments whether the SSMs and CN changes in the two lineages allow an
 	# ancestor-descendant relation
-	for seg_index in xrange(len(present_ssms)):
+	for seg_index in range(len(present_ssms)):
 		phasing_allows_relation_per_allele_lineage(k, k_prime, present_ssms, CNVs, cons.A, seg_index)
 		phasing_allows_relation_per_allele_lineage(k, k_prime, present_ssms, CNVs, cons.B, seg_index)
 		phasing_allows_relation_per_allele_lineage(k_prime, k, present_ssms, CNVs, cons.A, seg_index)
@@ -2290,13 +2287,13 @@ def phasing_allows_relation_per_allele_lineage(lineage_ssm, lineage_cnv, present
 	# lineage_ssm would be the ancestor, would be influenced by gains and losses
 	if lineage_ssm < lineage_cnv:
 		try:
-			if lineage_cnv in CNVs[seg_index][cons.GAIN][phase].keys():
+			if lineage_cnv in list(CNVs[seg_index][cons.GAIN][phase].keys()):
 				raise eo.ADRelationNotPossible("Gain in lineage {0} in segment {1} forbids ancestor-descendant relation to "
                                         "lineage {2}".format(lineage_cnv, seg_index, lineage_ssm))
 		except KeyError:
 			pass
 		try:
-			if lineage_cnv in CNVs[seg_index][cons.LOSS][phase].keys():
+			if lineage_cnv in list(CNVs[seg_index][cons.LOSS][phase].keys()):
 				raise eo.ADRelationNotPossible("Loss in lineage {0} in segment {1} forbids ancestor-descendant relation to "
                                 "lineage {2}.".format(lineage_cnv, seg_index, lineage_ssm))
 		except KeyError:
@@ -2304,7 +2301,7 @@ def phasing_allows_relation_per_allele_lineage(lineage_ssm, lineage_cnv, present
 	# lineage_ssm would be the descendant, would only be influenced by losses
 	else:
 		try:
-			if lineage_cnv in CNVs[seg_index][cons.LOSS][phase].keys():
+			if lineage_cnv in list(CNVs[seg_index][cons.LOSS][phase].keys()):
 				raise eo.ADRelationNotPossible("Loss in lineage {0} in segment {1} forbids ancestor-descendant relation to "
                                 "lineage {2}.".format(lineage_cnv, seg_index, lineage_ssm))
 		except KeyError:
@@ -2343,12 +2340,12 @@ def move_unphased_SSMs_if_necessary(k, k_prime, present_ssms, CNVs, matrix_after
 #	list[segments]:hash[loss, gain][A, B][lineage index]={cnv}
 def unphased_checking(lineage_ssm, lineage_cnv, present_ssms, CNVs):
 	# if lineage with SSMs doesn't have unphased SSMs, the function is quit
-	unphased_ssms = [present_ssms[i][cons.UNPHASED][lineage_ssm] for i in xrange(len(present_ssms))]
+	unphased_ssms = [present_ssms[i][cons.UNPHASED][lineage_ssm] for i in range(len(present_ssms))]
 	if sum(unphased_ssms) == 0:
 		return
 
 	# all segments are checked
-	for seg_index in xrange(len(present_ssms)):
+	for seg_index in range(len(present_ssms)):
 		# if lineage doesn't have unphased SSMs for this segment, nothing needs to be done
 		if present_ssms[seg_index][cons.UNPHASED][lineage_ssm] == False:
 			continue
@@ -2416,7 +2413,7 @@ def get_CNVs_of_lineage(lineage_cnv, CNVs, seg_index, lineage_ssm):
 # phase: Does the current lineage have a CNV in this phase?
 def has_CNV_in_phase(lineage_cnv, CNVs, seg_index, mutation_type, phase):
 	try:
-		if lineage_cnv in CNVs[seg_index][mutation_type][phase].keys():
+		if lineage_cnv in list(CNVs[seg_index][mutation_type][phase].keys()):
 			return True
 		else:
 			return False
@@ -2477,7 +2474,7 @@ def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_
 				if path_lineages is not None and my_lin not in path_lineages:
 					continue
 				# check all higher lineages whether they have phased SSMs
-				for higher_lin in xrange(1, my_lin):
+				for higher_lin in range(1, my_lin):
 					if (current_present_ssms[phases][higher_lin]):
 						zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, 
 							zero_count, higher_lin, my_lin,
@@ -2497,25 +2494,25 @@ def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zer
 		return zero_count
 
 	# check whether the lineages with a gain also contain a loss
-	gain_phase = current_CNVs[cons.GAIN].keys()
+	gain_phase = list(current_CNVs[cons.GAIN].keys())
 	if len(gain_phase) == 2:
 		raise eo.MyException("Gains and losses within one allele in one segment are not allowed.")
 	gain_phase = gain_phase[0]
 	loss_phase = cons.B
 	if gain_phase == loss_phase:
 		loss_phase = cons.A
-	gain_lins = current_CNVs[cons.GAIN][gain_phase].keys()
+	gain_lins = list(current_CNVs[cons.GAIN][gain_phase].keys())
 	# if path lineages are given, gain_lin has to be part of it
 	if path_lineages is not None:
 		raise eo.MyException("Check how this should be done with multiple gain_lins.")
 		if gain_lin not in path_lineages:
 			return zero_count
 	# find intersection of gain_lins and lins with loss
-	loss_lins = current_CNVs[cons.LOSS][loss_phase].keys()
+	loss_lins = list(current_CNVs[cons.LOSS][loss_phase].keys())
 	loh_lins = np.intersect1d(np.asarray(gain_lins), np.asarray(loss_lins)).tolist()
 	# check for upstream lineages
 	for my_lin in loh_lins:
-		for higher_lin in xrange(1, my_lin):
+		for higher_lin in range(1, my_lin):
 			if (current_present_ssms[cons.A][higher_lin] or current_present_ssms[cons.B][higher_lin]
 				or current_present_ssms[cons.UNPHASED][higher_lin]):
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
@@ -2539,7 +2536,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 		return zero_count
 
 	lin_num = len(current_present_ssms[0])
-	affacted_lineages = current_CNVs[cons.GAIN][cons.B].keys()
+	affacted_lineages = list(current_CNVs[cons.GAIN][cons.B].keys())
 	# get overlap of affected and path lineages
 	if path_lineages is not None:
 		affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
@@ -2550,7 +2547,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 	for my_lin in affacted_lineages:
 		if my_lin in current_CNVs[cons.GAIN][cons.A]:
 			# check whether higher lineages have unphased SSMs 
-			for higher_lin in xrange(1, my_lin):
+			for higher_lin in range(1, my_lin):
 				if (current_present_ssms[cons.UNPHASED][higher_lin]):
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
@@ -2572,13 +2569,13 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 
 	# check whether losses are contained on both alleles
 	try:
-		if len(currentCNVs[cons.LOSS][cons.A].keys()) == 0 or len(currentCNVs[cons.LOSS][cons.B].keys()) == 0:
+		if len(list(currentCNVs[cons.LOSS][cons.A].keys())) == 0 or len(list(currentCNVs[cons.LOSS][cons.B].keys())) == 0:
 			return zero_count
 	except KeyError:
 		return zero_count
 
 	lin_num = len(current_present_ssms[0])
-	affacted_lineages = currentCNVs[cons.LOSS][cons.A].keys()
+	affacted_lineages = list(currentCNVs[cons.LOSS][cons.A].keys())
 	# get overlap of affected and path lineages
 	if path_lineages is not None:
 		affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
@@ -2589,7 +2586,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 	for my_lin in affacted_lineages:
 		if my_lin in currentCNVs[cons.LOSS][cons.B]:
 			# check all lower lineages, it's not possible that they have an SSMs at all
-			for lower_lin in xrange(my_lin+1, lin_num):
+			for lower_lin in range(my_lin+1, lin_num):
 				# if lower lineage has unphased SSMs it can't be the child
 				if (current_present_ssms[cons.UNPHASED][lower_lin]):
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, 
@@ -2607,7 +2604,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 			# check upstream lineages, if they have unphased SSMs and are not in a relation with
 			# the current lineage, a relation would change the likelihood, better not to
 			# allow it
-			for higher_lin in xrange(1, my_lin):
+			for higher_lin in range(1, my_lin):
 				if (current_present_ssms[cons.UNPHASED][higher_lin]):
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
@@ -2647,7 +2644,7 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 	defparent=None):
 	# CN loss needs to affect a lineage
 	try:
-		affected_lineages = sorted(current_CNVs[cons.LOSS][phase].keys())
+		affected_lineages = sorted(list(current_CNVs[cons.LOSS][phase].keys()))
 		# get overlap of affected and path lineages
 		if path_lineages is not None:
 			affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
@@ -2657,7 +2654,7 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 	lin_num = len(current_present_ssms[0])
 	# check for each affected lineage and all lower lineages
 	for lin_index in affected_lineages:
-		for lower_lin in xrange(lin_index+1, lin_num):
+		for lower_lin in range(lin_index+1, lin_num):
 			if current_present_ssms[phase][lower_lin]:
 				zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, 
 					lin_index, lower_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
@@ -2697,7 +2694,7 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None):
 	# if CN loss affects lineages in this phase
 	try:
-		affected_lineages = sorted(currentCNVs[cons.LOSS][phase].keys())
+		affected_lineages = sorted(list(currentCNVs[cons.LOSS][phase].keys()))
 		# get overlap of affected and path lineages
 		if path_lineages is not None:
 			affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
@@ -2709,8 +2706,8 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 		return zero_count
 
 	# check all pairs of lineages
-	for i in xrange(lin_num):
-		for j in xrange(i+1, lin_num):
+	for i in range(lin_num):
+		for j in range(i+1, lin_num):
 			lin_high = affected_lineages[i]
 			lin_low = affected_lineages[j]
 			zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low,
@@ -2794,10 +2791,10 @@ def is_it_LOH(gain_num, loss_num, CNVs):
 	if gain_num > 0 and loss_num > 0:
 		# exactly one gain and one loss
 		if gain_num == 1 and loss_num == 1:
-			key_gain = CNVs[cons.GAIN].keys()[0]
-			key_loss = CNVs[cons.LOSS].keys()[0]
+			key_gain = list(CNVs[cons.GAIN].keys())[0]
+			key_loss = list(CNVs[cons.LOSS].keys())[0]
 			# lineages of loss and gain are equal
-			if CNVs[cons.GAIN][key_gain].keys() == CNVs[cons.LOSS][key_loss].keys():
+			if list(CNVs[cons.GAIN][key_gain].keys()) == list(CNVs[cons.LOSS][key_loss].keys()):
 				return True
 			else:
 				raise eo.NotProperLOH("Different lineages of loss and gain.")
@@ -2872,11 +2869,11 @@ def CNVs_insert(CNVs, phase, lin_index, my_cnv):
 def get_Z_matrix(my_lineages):
 	
 	# create empty Z matrix
-	z_matrix = [[0] * len(my_lineages) for _ in xrange(len(my_lineages))]
+	z_matrix = [[0] * len(my_lineages) for _ in range(len(my_lineages))]
 
 	# fill with 1s
 	one_count = 0
-	for x in xrange(len(my_lineages)):
+	for x in range(len(my_lineages)):
 		for y in my_lineages[x].sublins:
 			z_matrix[x][y] = 1
 			one_count += 1
@@ -2886,8 +2883,8 @@ def get_Z_matrix(my_lineages):
 	zero_count = get_number_of_untrivial_z_entries(len(my_lineages)) - one_count
 
 	# fill diagonal and lower half with -1s as there can be no relations
-	for x in xrange(len(my_lineages)):
-		for y in xrange(0,x+1):
+	for x in range(len(my_lineages)):
+		for y in range(0,x+1):
 			z_matrix[x][y] = -1
 
 	return z_matrix, zero_count

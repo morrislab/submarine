@@ -18,11 +18,11 @@ class Lineage(object):
 			self.snps_a, self.snps_b, self.ssms, self.ssms_a, self.ssms_b) ==
 			(other.sublins, other.cnvs_a, other.cnvs_b, other.snps,
 			other.snps_a, other.snps_b, other.ssms, other.ssms_a, other.ssms_b))
-                if isinstance(self.freq, list) is False:
+		if isinstance(self.freq, list) is False:
 		    freq_equal = abs(self.freq - other.freq) < 0.00000001
-                else:
+		else:
                     freq_equal = True
-                    for i in xrange(len(self.freq)):
+                    for i in range(len(self.freq)):
                         if abs(self.freq[0] - other.freq[0]) >= 0.00000001:
                             freq_equal = False
                             break

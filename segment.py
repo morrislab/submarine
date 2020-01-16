@@ -11,12 +11,12 @@ class Segment(object):
 		self.index = -1
 
 	def print_segment(self):
-		print self.chr
-		print self.start
-		print self.end
-		print self.count
-		print self.hm
-		print self.cn
+		print(self.chr)
+		print(self.start)
+		print(self.end)
+		print(self.count)
+		print(self.hm)
+		print(self.cn)
 
 class Segment_allele_specific(object):
 	
