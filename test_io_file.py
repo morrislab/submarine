@@ -9,7 +9,6 @@ import exceptions_onctopus as eo
 import os
 import pdb
 import sys
-#from StringIO import StringIO
 
 class OnctopusIOTest(unittest.TestCase):
 

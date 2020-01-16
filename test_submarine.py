@@ -8,7 +8,6 @@ import io_file as oio
 import numpy as np
 import lineage
 import constants as cons
-#from StringIO import StringIO
 import numpy as np
 import lineage
 import copy
