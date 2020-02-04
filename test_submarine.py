@@ -14,6 +14,158 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_create_ID_ordering_mapping(self):
+
+		# positive example
+		sorted_indices = [4, 2, 3, 1, 0]
+		lin_ids = [0, 1, 2, 3, 4]
+
+		mapping = submarine.create_ID_ordering_mapping(sorted_indices, lin_ids)
+
+		self.assertEqual(mapping[4], 1)
+		self.assertEqual(mapping[2], 2)
+		self.assertEqual(mapping[3], 3)
+		self.assertEqual(mapping[1], 4)
+		self.assertEqual(mapping[0], 5)
+
+		# negative example, same ID twice
+		sorted_indices = [4, 2, 3, 1, 0]
+		lin_ids = [0, 1, 2, 3, 3]
+
+		with self.assertRaises(eo.MyException):
+			mapping = submarine.create_ID_ordering_mapping(sorted_indices, lin_ids)
+
+	def test_go_frequency_mode(self):
+		# no user constraints, works
+		freq_file = "testdata/unittests/frequencies2.csv"
+
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file)
+
+		real_z = [
+			[0, 1, 1, 1, 1],
+			[0, 0, 1, 1, 1],
+			[0, 0, 0, 0, -1],
+			[0, 0, 0, 0, -1],
+			[0, 0, 0, 0, 0]
+			]
+
+		real_ppm = [
+			[0, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0],
+			[0, 1, 0, 0, 0],
+			[0, 1, 0, 0, 0],
+			[0, 0, 1, 1, 0],
+			]
+
+		self.assertEqual(z_matrix, real_z)
+		self.assertTrue((real_ppm == ppm).all())
+		self.assertEqual(my_lins[1].sublins, [2, 3, 4])
+		self.assertEqual(my_lins[2].sublins, [])
+		self.assertEqual(my_lins[3].sublins, [])
+
+		# with user constraints, works
+		freq_file = "testdata/unittests/frequencies2.csv"
+		userZ_file = "testdata/unittests/userZ.csv"
+
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file, userZ_file=userZ_file)
+
+		real_z = [
+			[0, 1, 1, 1, 1],
+			[0, 0, 1, 1, 1],
+			[0, 0, 0, 0, 1],
+			[0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0]
+			]
+
+		real_ppm = [
+			[0, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0],
+			[0, 1, 0, 0, 0],
+			[0, 1, 0, 0, 0],
+			[0, 0, 1, 0, 0],
+			]
+
+		self.assertEqual(z_matrix, real_z)
+		self.assertTrue((real_ppm == ppm).all())
+		self.assertEqual(my_lins[1].sublins, [2, 3, 4])
+		self.assertEqual(my_lins[2].sublins, [4])
+		self.assertEqual(my_lins[3].sublins, [])
+
+		# with user constraints, doesn't work
+		freq_file = "testdata/unittests/frequencies2.csv"
+		userZ_file = "testdata/unittests/userZ_2.csv"
+
+		with self.assertRaises(eo.MyException):
+			my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file, userZ_file=userZ_file)
+
+		# no user constraints, doesn't work
+		freq_file = "testdata/unittests/frequencies3.csv"
+
+		with self.assertRaises(eo.NoParentsLeft):
+			my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file)
+
+	def test_get_lineages_from_freqs(self):
+
+		# everything already sorted correctly
+		freqs = [[1, 0.8], [0.8, 0.7], [0.9, 0.1]]
+		freq_num = 2
+		lin_num = 4
+		lin_ids = [1, 2, 3]
+
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, freq_num=freq_num, 
+			lin_num=lin_num, lin_ids=lin_ids)
+		self.assertEqual(lins[0].freq, [1.0, 1.0])
+		self.assertEqual(lins[1].freq, [1.0, 0.8])
+		self.assertEqual(lins[2].freq, [0.8, 0.7])
+		self.assertEqual(lins[3].freq, [0.9, 0.1])
+		self.assertEqual(lins[0].sublins, [1, 2, 3])
+		self.assertEqual(lins[1].sublins, [])
+		self.assertEqual(lins[2].sublins, [])
+		self.assertEqual(lins[3].sublins, [])
+
+
+		# sorting needed
+		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1]]
+		freq_num = 2
+		lin_num = 5
+		lin_ids = [1, 2, 3, 4]
+
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, freq_num=freq_num, 
+			lin_num=lin_num, lin_ids=lin_ids)
+		self.assertEqual(lins[1].freq, [1.0, 1.0])
+		self.assertEqual(lins[2].freq, [1.0, 0.8])
+		self.assertEqual(lins[3].freq, [0.9, 0.1])
+		self.assertEqual(lins[4].freq, [0.8, 0.1])
+
+
+		# same average freqs but other individual frequencies
+		freqs = [[0.8, 0.2, 1.0], [0.1, 0.2, 0.3], [0.5, 0.5, 1.0], [0.9, 0.8, 0.9],
+			[1.0, 0.3, 0.7], [0.4, 0.2, 0.2]]
+		freq_num = 3
+		lin_num = 7
+		lin_ids = [1, 2, 3, 4, 5, 6]
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, freq_num=freq_num, 
+			lin_num=lin_num, lin_ids=lin_ids)
+
+		self.assertEqual(lins[1].freq, [0.9, 0.8, 0.9])
+		self.assertEqual(lins[4].freq, [0.8, 0.2, 1.0])
+		self.assertEqual(lins[3].freq, [0.5, 0.5, 1.0])
+		self.assertEqual(lins[2].freq, [1.0, 0.3, 0.7])
+		self.assertEqual(lins[6].freq, [0.1, 0.2, 0.3])
+		self.assertEqual(lins[5].freq, [0.4, 0.2, 0.2])
+
+
+		# same frequencies
+		freqs = [[1.0, 0.1], [0.8, 0.7], [1.0, 0.1]]
+		freq_num = 2
+		lin_num = 4
+		lin_ids = [1, 2, 3]
+
+		with self.assertRaises(eo.MyException):
+			lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, 
+				freq_num=freq_num, lin_num=lin_num, lin_ids=lin_ids)
+
+
 	def test_convert_zmatrix_for_internal_use(self):
 
 		z_matrix = [[0, 1, 1, 1], [0, 0, "?", 1], [0, 0, 0, "?"], [0, 0, 0, 0]]
@@ -25,7 +177,7 @@ class ModelTest(unittest.TestCase):
 	def test_convert_zmatrix_0_m1(self):
 
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
-		new_z_matrix = [[0, 1, 1, 1], [0, 0, "?", 1], [0, 0, 0, "?"], [0, 0, 0, 0]]
+		new_z_matrix = [[0, 1, 1, 1], [0, 0, -1, 1], [0, 0, 0, -1], [0, 0, 0, 0]]
 		self.assertEqual(submarine.convert_zmatrix_0_m1(z_matrix), new_z_matrix)
 
 	def test_count_ambiguous_relationships(self):
@@ -2492,7 +2644,7 @@ class ModelTest(unittest.TestCase):
 
 			self.assertEqual(zero_count, 0)
 			self.assertEqual(z_matrix[1][2], -1)
-			
+
 			# crossing rule violated, leads to Z-matrix update
 			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)
 			lin1 = lineage.Lineage([], [1.0, 0.8, 1.0], None, None, None, None, None, None, None, None)
@@ -2508,6 +2660,19 @@ class ModelTest(unittest.TestCase):
 			self.assertEqual(zero_count, 0)
 			self.assertEqual(z_matrix[1][2], -1)
 			self.assertEqual(z_matrix[1][3], -1)
+
+			# crossing rule violated, entry was already set to 1
+			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)
+			lin1 = lineage.Lineage([2], [1.0, 0.8, 1.0], None, None, None, None, None, None, None, None)
+			lin2 = lineage.Lineage([], [0.8, 0.81, 0.9], None, None, None, None, None, None, None, None)
+			lins = [lin0, lin1, lin2]
+			z_matrix = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+			zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+					z_matrix, 2, 3)
+			
+			
+			with self.assertRaises(eo.MyException):
+				zero_count = submarine.check_crossing_rule_function(lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
 
 	def test_check_and_update_complete_Z_matrix(self):
 			# minimal filled Z matrix

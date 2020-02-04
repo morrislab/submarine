@@ -536,15 +536,119 @@ def add_CN_changes_to_hash(CN_changes_hash, cnvs, phase, lin_index):
 				CN_changes_hash[lin_index] = {}
 				CN_changes_hash[lin_index][cnv.seg_index] = [phase]
 				
-def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
-	overwrite=False):
-	# checks whether output files exist already
+# checks whether output files should be overwritten
+# if they shouldn't be overwritten but files with the same name exists, return False
+def check_overwrite(overwrite, output_prefix):
 	if overwrite == False:
 		try:
 			oio.raise_if_file_exists("{0}.zmatrix".format(output_prefix))
+			return True
 		except eo.FileExistsException as e:
 			logging.error("Files for output prefix {0} exist already.\nTerminating SubMARine.".format(output_prefix))
-			return
+			return False
+
+# sets entries in ancestry matrix Z according to user constraints
+# checks for invalid values
+def set_z_user_constraints(z_matrix, user_z):
+	lin_num = len(z_matrix)
+	for k in range(lin_num):
+		for kp in range(lin_num):
+			if k == 0 and kp > 0:
+				if user_z[k][kp] == -1:
+					error_message = ("Invalid user defined ancestry constraints. Germline has to be ancestor of subclone {0}."
+						.format(kp))
+					logging.error(error_message)
+					raise eo.MyException(error_message)
+			if k >= kp:
+				if user_z[k][kp] == 1:
+					error_message = ("Invalid user defined ancestry constraints."
+						"Subclone {0} cannot be an ancestor of subclone {1}".format(k, kp))
+					logging.error(error_message)
+					raise eo.MyException(error_message)
+			else:
+				if user_z[k][kp] != 0:
+					z_matrix[k][kp] = user_z[k][kp]
+
+def go_frequency_clonal_cna_mode(freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, output_prefix=None, overwrite=False):
+	pass
+
+def go_frequency_mode(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False):
+	# checks whether output files exist already
+	if check_overwrite(overwrite, output_prefix) == False:
+		return
+
+	# create lineage object list
+	my_lins, sorting_id_mapping = get_lineages_from_freqs(freq_file)
+	lin_num = len(my_lins)
+
+	# get user constraints
+	user_z = None
+	if userZ_file is not None:
+	    user_z = oio.read_userZ(userZ_file, lin_num, sorting_id_mapping=sorting_id_mapping)
+
+	# start SupMARine
+	logging.info("Starting SubMARine.")
+
+	# create Z-matrix, apply germline constraints and trivial relationships
+	z_matrix = get_Z_matrix(my_lins)[0]
+
+	# set user constraints if exist
+	if user_z is not None:
+		set_z_user_constraints(z_matrix, user_z)
+	
+	# create variabls needed for tree rules
+	logging.debug("check_and_update_complete_Z_matrix_from_matrix")
+	zero_count = lin_num * lin_num
+	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(
+	        z_matrix, zero_count, lin_num)
+	
+	# crossing rule
+	logging.debug("crossing rule")
+	zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+
+	# check whether sum rule leads to unambiguous relationships
+	logging.debug("using sum rule")
+	# create needed variables
+	gain_num = []
+	loss_num = []
+	CNVs = []
+	present_ssms = []
+	ssm_infl_cnv_same_lineage = []
+	seg_num = 1
+	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lins,
+		ssm_infl_cnv_same_lineage)
+	triplets_list = [[triplet_xys, triplet_ysx, triplet_xsy]]
+	z_matrix = np.asarray(z_matrix)
+	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], CNVs, triplets_list)[0]
+	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
+	try:
+		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
+			gain_num, loss_num, CNVs, present_ssms)
+	except eo.MyException as e:
+		raise e
+
+	# adapt lineages because relationships can differ
+	logging.debug("adapt subclones after sum rule")
+	my_lins = create_updates_lineages(my_lins, 0, [zmco.z_matrix], zmco.present_ssms, [zmco.present_ssms])
+
+	# convert values in Z-matrix to values used in paper
+	z_matrix_for_output = convert_zmatrix_0_m1(zmco.z_matrix)
+
+	# if no output prefix is given, results are not written to files but returned
+	if output_prefix is None:
+		return my_lins, z_matrix_for_output, avFreqs, ppm
+
+	# print to file
+	logging.info("Printing results to file.")
+	oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
+	np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
+	oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+
+def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
+	overwrite=False):
+	# checks whether output files exist already
+	if check_overwrite(overwrite, output_prefix) == False:
+		return
 
 	# create lineage object list
 	my_lins = get_lineages_from_input_files(parents_file, freq_file, cna_file, ssm_file)
@@ -587,14 +691,14 @@ def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None
 	oio.print_ssm_phasing(my_lins, "{0}_ssms.csv".format(output_prefix), overwrite)
 	oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
 
-# converts a 0 to a "?" and a -1 to a 0 as described in the paper
+# converts a 0 to a -1 and a -1 to a 0 as described in the paper
 def convert_zmatrix_0_m1(z_matrix):
 	lin_num = len(z_matrix)
 	new_z_matrix = np.ones(lin_num * lin_num).reshape(lin_num, lin_num).tolist()
 	for k in range(lin_num):
 		for k2 in range(lin_num):
 			if z_matrix[k][k2] == 0:
-				new_z_matrix[k][k2] = "?"
+				new_z_matrix[k][k2] = -1
 			elif z_matrix[k][k2] == -1:
 				new_z_matrix[k][k2] = 0
 			elif z_matrix[k][k2] == 1:
@@ -608,8 +712,80 @@ def convert_zmatrix_for_internal_use(z_matrix):
 		for k2 in range(lin_num):
 			if z_matrix[k][k2] == 0:
 				z_matrix[k][k2] = -1
+			# different versions of the code used different values to show ambiguity
 			elif z_matrix[k][k2] == "?":
 				z_matrix[k][k2] = 0
+			elif z_matrix[k][k2] == -1:
+				z_matrix[k][k2] = 0
+
+# given the lineage frequencies, create a lineage object list
+def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=None, lin_ids=None):
+	# get frequencies
+	if freq_file is not None:
+		freqs, lin_ids = oio.read_frequencies(freq_file, ordering_given=False, return_ids=True)
+		freq_num = len(freqs[0])
+		lin_num = len(freqs) + 1
+	
+	# sort frequencies according to average frequency
+	# get average of list
+	av_freqs = [np.average(freqs[i]) for i in range(lin_num-1)]
+	# indices of argsort
+	sorted_indices = np.flip(np.argsort(av_freqs), 0)
+	# check whether multiple lineages with same average frequencies exist
+	i = 0
+	while i < lin_num - 2:
+		same_freq = []
+		next_lin = i+1
+		check_next_lin = True
+		# get all lineages that have the same average frequency
+		while(check_next_lin):
+			if freqs[sorted_indices[i]] == freqs[sorted_indices[next_lin]]:
+				same_freq = same_freq + [sorted_indices[next_lin]]
+				next_lin += 1
+				if next_lin >= lin_num-1:
+					check_next_lin = False
+			else:
+				check_next_lin = False
+
+		# other lineages have the same frequency
+		if len(same_freq) > 0:
+			# append index of current lineage
+			same_freq = [sorted_indices[i]] + same_freq
+			# if lineages have different frequencies per sample, nothing needs to be done
+			for j in range(len(same_freq)-1):
+				#TODO also check for other attributes to differentiate them
+				if freqs[same_freq[j]] == freqs[same_freq[j+1]]:
+					error_message = ("Subclones {0} and {1} have exactly same frequencies, cannot be differentiated."
+						.format(same_freq[j], same_freq[j+1]))
+					logging.error(error_message)
+					raise eo.MyException(error_message)
+		# update i
+		i = next_lin
+
+	# create mapping between ordering and IDs
+	mapping = create_ID_ordering_mapping(sorted_indices, lin_ids)
+
+	# create lineages
+	normal_lineage = lineage.Lineage([i for i in range(1, lin_num)], [1.0] * freq_num, [], [], [], [], [], [], [], [])
+	other_lineages = [lineage.Lineage([], freqs[sorted_indices[i]], [], [], [], [], [], [], [], [])
+		for i in range(lin_num-1)]
+
+	return [normal_lineage] + other_lineages, mapping
+
+# creates a mapping between IDs of lineages and ordering according to their frequencies
+def create_ID_ordering_mapping(sorted_indices, lin_ids):
+	mapping = {}
+	for i in range(len(sorted_indices)):
+		my_key = lin_ids[sorted_indices[i]]
+		try:
+			# this statement either throws a KeyError or a TypeError
+			mapping[my_key][0] = None
+		except KeyError:
+			mapping[my_key] = i+1
+		except TypeError:
+			raise eo.MyException("lineage ID has to be unique.")
+
+	return mapping
 
 # given information about parents, frequencies, cnas and ssms in a file, create a lineage object
 def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=None, ssm_file=None):
@@ -770,6 +946,7 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 	return True, avFreqs, ppm
 
 def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
+	
 	# available frequency gets adapted for all samples n
 	avFreqs[kstar] = np.subtract(avFreqs[kstar], linFreqs[k])
 	
@@ -1417,16 +1594,16 @@ def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys,
 
     for k in range(1, lin_num):
         for k_prime in range(k+1, lin_num):
-            # if relationship is ambiguous, check whether crossing rule is fulfilled
-            if z_matrix[k][k_prime] == 0:
-                no_violation = (np.asarray(my_lineages[k].freq) >= np.asarray(my_lineages[k_prime].freq)).all()
-                if no_violation == False:
-                    # make relationship absent
-                    z_matrix[k][k_prime] = -1
-                    zero_count -= 1
-                    # check whether Z-matrix needs to be updated iteratively
-                    zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
-                            (k, k_prime))
+            no_violation = (np.asarray(my_lineages[k].freq) >= np.asarray(my_lineages[k_prime].freq)).all()
+            if no_violation == False:
+                # make relationship absent
+                if z_matrix[k][k_prime] == 1:
+                    raise eo.MyException("Subclone {0} cannot be an ancestor of subclone {1} because of crossing rule.".format(k, k_prime))
+                z_matrix[k][k_prime] = -1
+                zero_count -= 1
+                # check whether Z-matrix needs to be updated iteratively
+                zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
+                        (k, k_prime))
 
     return zero_count
 
@@ -2934,6 +3111,7 @@ if __name__ == '__main__':
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
     parser.add_argument("--write_trees_to_file", action='store_true', help="writes trees to file")
     parser.add_argument("--tree_threshold", default=25000, type=int, help ="maximal number of trees that is written to file")
+    parser.add_argument("--frequency_mode", action='store_true', help="starts frequency mode")
     args = parser.parse_args()
 
     if args.dfs:
@@ -2942,6 +3120,8 @@ if __name__ == '__main__':
         else:
             only_number = True
         depth_first_search(args.lineage_file, args.seg_file, args.z_matrix_file, args.output_prefix, only_number, args.tree_threshold, args.overwrite)
+    elif args.frequency_mode:
+        go_frequency_mode(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 

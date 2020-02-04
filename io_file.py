@@ -61,7 +61,7 @@ def read_parent_vector(my_file):
 	parents = [p[1] for p in sorted(lins_parents, key=lambda x: x[0])]
 	return parents
 
-def read_frequencies(my_file):
+def read_frequencies(my_file, return_ids=False, ordering_given=True):
 	lins_freqs = []
 	first_line = True
 	with open(my_file, "r") as f:
@@ -72,8 +72,18 @@ def read_frequencies(my_file):
 			lins = int(line.split("\t")[0])
 			freqs = list(map(float, line.rstrip().split("\t")[1:]))
 			lins_freqs.append([lins, freqs])
-	freqs = [f[1] for f in sorted(lins_freqs, key=lambda x: x[0])]
-	return freqs
+	if ordering_given:
+		freqs = [f[1] for f in sorted(lins_freqs, key=lambda x: x[0])]
+	else:
+		freqs = [f[1] for f in lins_freqs]
+	
+	if return_ids == False:
+		return freqs
+
+	if ordering_given == False:
+		return freqs, [f[0] for f in lins_freqs]
+
+	raise eo.MyException("nothing returned here")
 
 def read_cnas(my_file):
 	my_cnas = []
@@ -97,7 +107,7 @@ def read_cnas(my_file):
 
 	return my_cnas
 
-def read_ssms(my_file):
+def read_ssms(my_file, phasing=True):
 	my_ssms = []
 	first_line = True
 	with open(my_file, "r") as f:
@@ -105,32 +115,36 @@ def read_ssms(my_file):
 			if first_line:
 				first_line = False
 				continue
-			seg_index, chromosome, pos, lineage, phase, cna_infl_same_lineage = line.rstrip().split("\t")
+			if phasing == True:
+				seg_index, chromosome, pos, lineage, phase, cna_infl_same_lineage = line.rstrip().split("\t")
+			else:
+				seg_index, chromosome, pos, lineage = line.rstrip().split("\t")
 			ssm = snp_ssm.SSM()
 			ssm.chr = int(chromosome)
 			ssm.pos = int(pos)
 			ssm.seg_index = int(seg_index)
-			if cna_infl_same_lineage == "0":
-				ssm.infl_cnv_same_lin = False
-			elif cna_infl_same_lineage == "1":
-				ssm.infl_cnv_same_lin = True
-			else:
-				raise eo.MyException("undefined state for SSM")
-			if phase == "A":
-				ssm.phase = cons.A
-			elif phase == "B":
-				ssm.phase = cons.B
-			elif phase == "0":
-				ssm.phase = cons.UNPHASED
-			else:
-				raise eo.MyException("undefined phase for SSM")
+			if phasing == True:
+				if cna_infl_same_lineage == "0":
+					ssm.infl_cnv_same_lin = False
+				elif cna_infl_same_lineage == "1":
+					ssm.infl_cnv_same_lin = True
+				else:
+					raise eo.MyException("undefined state for SSM")
+				if phase == "A":
+					ssm.phase = cons.A
+				elif phase == "B":
+					ssm.phase = cons.B
+				elif phase == "0":
+					ssm.phase = cons.UNPHASED
+				else:
+					raise eo.MyException("undefined phase for SSM")
 			ssm.lineage = int(lineage)
 
 			my_ssms.append(ssm)
 
 	return my_ssms
 
-def read_userZ(my_file, lin_num):
+def read_userZ(my_file, lin_num, sorting_id_mapping=None):
 	z_matrix = np.zeros(lin_num*lin_num).reshape(lin_num,lin_num)
 	first_line = True
 	with open(my_file, "r") as f:
@@ -139,6 +153,9 @@ def read_userZ(my_file, lin_num):
 				first_line = False
 				continue
 			k, kp, v = list(map(int, line.rstrip().split("\t")))
+			if sorting_id_mapping is not None:
+				k = sorting_id_mapping[k]
+				kp = sorting_id_mapping[kp]
 			if v == 1:
 				z_matrix[k][kp] = 1
 			elif v == 0:

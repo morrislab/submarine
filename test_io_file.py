@@ -64,16 +64,30 @@ class OnctopusIOTest(unittest.TestCase):
 		self.assertEqual(cnas[1].seg_index, 2)
 
 	def test_read_frequencies(self):
+		# ex1_frequencies.csv
 		input_name = "submarine_example/ex1_frequencies.csv"
 		freqs = oio.read_frequencies(input_name)
 
 		self.assertEqual([[0.8, 0.75], [0.7, 0.15], [0.1, 0.6]], freqs)
 
-
+		# frequencies.csv, ordering given, no IDs
 		input_name = "testdata/unittests/frequencies.csv"
 		freqs = oio.read_frequencies(input_name)
 
 		self.assertEqual([[0.8, 0.75], [0.7, 0.15], [0.1, 0.6]], freqs)
+
+		# frequencies.csv, ordering not given, no IDs
+		input_name = "testdata/unittests/frequencies.csv"
+		freqs = oio.read_frequencies(input_name, ordering_given=False)
+
+		self.assertEqual([[0.8, 0.75], [0.1, 0.6], [0.7, 0.15]], freqs)
+
+		# frequencies.csv, ordering not given, with IDs
+		input_name = "testdata/unittests/frequencies.csv"
+		freqs, ids = oio.read_frequencies(input_name, ordering_given=False, return_ids=True)
+
+		self.assertEqual([[0.8, 0.75], [0.1, 0.6], [0.7, 0.15]], freqs)
+		self.assertEqual([1, 3, 2], ids)
 	
 	def test_read_parent_vector(self):
 		input_name = "submarine_example/ex1_parents.csv"
