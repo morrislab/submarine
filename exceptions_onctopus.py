@@ -82,3 +82,7 @@ class NoParentsLeft(MyException):
 	pass
 class AvailableFreqLowerZero(MyException):
 	pass
+class RelationshipAlreadySet(MyException):
+	pass
+class ReconstructionInvalid(MyException):
+	pass

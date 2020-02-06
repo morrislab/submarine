@@ -14,6 +14,50 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_new_dfs(self):
+
+		# testing correct iteration through all settings
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.2], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+		all_options = [[1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1,], [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]]
+
+		self.assertEqual(all_options, submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True))
+
+		# 4 lineages, no mutations, all valid Z-matrices possible
+		# two Z-matrices are not possible because of tree rules, some values already get updated at earlier undefined entries
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.2], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+
+		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_reconstructions=True)
+
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 6)
+		self.assertEqual(len(reconstructions), 6)
+		z_matrix_1 = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1]]
+		z_matrix_2 = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		z_matrix_3 = [[-1, 1, 1, 1], [-1, -1, 1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		z_matrix_4 = [[-1, 1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		z_matrix_5 = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, -1, -1]]
+		z_matrix_6 = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		self.assertEqual(reconstructions[0].zmco.z_matrix, z_matrix_1)
+		self.assertEqual(reconstructions[1].zmco.z_matrix, z_matrix_2)
+		self.assertEqual(reconstructions[2].zmco.z_matrix, z_matrix_3)
+		self.assertEqual(reconstructions[3].zmco.z_matrix, z_matrix_4)
+		self.assertEqual(reconstructions[4].zmco.z_matrix, z_matrix_5)
+		self.assertEqual(reconstructions[5].zmco.z_matrix, z_matrix_6)
+
+		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
+
 	def test_create_ID_ordering_mapping(self):
 
 		# positive example
@@ -430,7 +474,7 @@ class ModelTest(unittest.TestCase):
 		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]]
 		self.assertEqual(submarine.upper_bound_number_reconstructions(ppm), np.log(6))
 
-	def test_compute_number_ambiguous_recs(self):
+	def test_compute_number_ambiguous_recs_and_new_dfs(self):
 		# 1) 4, all setting are possible
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([], [0.6, 0.6], [], [], [], [], [], [], [], [])
@@ -442,7 +486,11 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		self.assertEqual(submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True), 4)
+		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 4)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 4)
 
 		# 2) 6, only subset possible because of tree rule
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -455,7 +503,11 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
-		self.assertEqual(submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True), 6)
+		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 6)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 6)
 
 		# 3) 2, only subset possible because of sum rule
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -468,7 +520,11 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		self.assertEqual(submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True), 2)
+		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 2)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 2)
 
 		# 4) 3, only subset possible because of absence rule
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -487,8 +543,12 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		count = submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True)
+		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 3)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 3)
 
 		# 5) 3, only subset possible because of absence rule, k lost allele, k' has SSM phased to this allele
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -506,8 +566,12 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		count = submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True)
+		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 2)
 
 		# 6) 3, only subset possible because of absence rule, k lost both alleles, k' has unphased SSMs
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -526,8 +590,12 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		count = submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True)
+		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 2)
 
 		# 7) 3, only subset possible because of absence rule, k lost allele, k'' is descendat with other CNC, k' has unphased SSMs
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -546,8 +614,12 @@ class ModelTest(unittest.TestCase):
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
-		count = submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True)
+		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 2)
 
 		# 8) 3, only subset possible because of absence rule, k and k' loose same allele in same segment
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -562,12 +634,63 @@ class ModelTest(unittest.TestCase):
 		lin3 = lineage.Lineage([], [0.1, 0.1], [], [], [], [], [], [], [], [])
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 
 		# recursive
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 		with self.assertRaises(eo.MyException):
-			count = submarine.compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True, check_validity=True)
+			# input should be propagted further, thus exception is thrown
+			count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), 
+				recursive=True, check_validity=True)
+		# iterative
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 1)
+
+		# 9) input invalid
+		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
+		ssm1 = snp_ssm.SSM()
+		ssm1.chr = 0
+		ssm1.pos = 1
+		ssm1.seg_index = 0
+		cnv2 = cnv.CNV(-1, 0, 0, 0, 10)
+		cnv3 = cnv.CNV(-1, 0, 0, 0, 10)
+		lin1 = lineage.Lineage([3], [0.6, 0.6], [cnv2], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3, 0.3], [cnv3], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.1, 0.1], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+
+		# iterative
+		with self.assertRaises(eo.ReconstructionInvalid):
+			total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+
+		# 10) 3, different CNVs in linegaes 1 and 3, unphased SSM in 2, depending on phasing of 2, it can be ancestor of 3 or not
+		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
+		ssm1 = snp_ssm.SSM()
+		ssm1.chr = 0
+		ssm1.pos = 1
+		ssm1.seg_index = 0
+		cnv2 = cnv.CNV(-1, 0, 0, 0, 10)
+		cnv3 = cnv.CNV(1, 0, 0, 0, 10)
+		lin1 = lineage.Lineage([3], [0.6, 0.6], [cnv2], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3, 0.3], [], [], [], [], [], [ssm1], [], [])
+		lin3 = lineage.Lineage([], [0.1, 0.1], [], [cnv3], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+
+		# recursive
+		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), 
+			recursive=True, check_validity=True)
+		self.assertEqual(count, 5)
+		# iterative
+		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, test_reconstructions=True)
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 5)
+		self.assertEqual(reconstructions[0].present_ssms[0][1][2], True)
+		self.assertEqual(reconstructions[3].present_ssms[0][0][2], True)
 
 	def test_check_sum_rule(self):
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])

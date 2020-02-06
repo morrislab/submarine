@@ -19,6 +19,201 @@ import copy
 from itertools import compress
 import json
 
+def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, check_validity=False, test_iteration=False,
+	test_reconstructions=False):
+	
+	total_count = 0
+	valid_count = 0
+
+	# create list structure "undef_rels" to iterate through all possible settings of matrix
+	undef_rels = []
+	REL = 0
+	K = 1
+	KP = 2
+	SBCLR = 3
+	for k in range(len(z_matrix)):
+		for kp in range(k+1, len(z_matrix)):
+			if z_matrix[k][kp] == 0:
+				undef_rels.append([0, k, kp, None])
+
+	# different variables needed for this function
+	lin_num = len(my_lineages)
+	zero_count = lin_num * lin_num
+	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lin_num)
+	matrix_after_first_round = copy.deepcopy(z_matrix)
+	# go once through segments and get gains, losses and SSMs
+	gain_num = []
+	loss_num = []
+	CNVs = []
+	present_ssms = []
+	ssm_infl_cnv_same_lineage = []
+	# iterate through all segments once to get all CN changes and SSMs appearances
+	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lineages,
+		ssm_infl_cnv_same_lineage)
+	# combine information to Z-matrix and Co object
+	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, CNVs, matrix_after_first_round)
+	# create variables needed for sum rule
+	last = None
+	defparent = None
+	avFreqs = None
+	linFreqs = None
+	if ppm is not None:
+		last = lin_num - 1
+		# get definite parents and available frequencies
+		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
+		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
+	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, linFreqs, avFreqs)
+
+	# checks whether given partial subclonal reconstruction is valid
+	if not is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage,
+		check_only_validity_possible=True):
+		raise eo.ReconstructionInvalid("Reconstruction is invalid")
+
+	# testing whether function iterates correctly over all possible settings in Z-matrix
+	if test_iteration:
+		all_options = []
+	# testing whether function allows and forbids correct subclonal reconstructions
+	if test_reconstructions:
+		reconstructions = []
+
+	# pointer i iterates through list with undefined relationships
+	i = 0
+	while i < len(undef_rels) + 1:
+		# current relationship is undefined
+		if i < len(undef_rels) and undef_rels[i][REL] == 0:
+			# set relationship to present
+			undef_rels[i][REL] = 1
+			# next steps not needed for testing whether iteration finds all settings
+			if test_iteration:
+				i += 1
+				continue
+			# create first subclonal reconstruction to update
+			if i == 0:
+				sbclr = copy.deepcopy(sbclr_0)
+			# use previous subclonal reconstruction to update
+			else:
+				sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
+			try:
+				# update relationship in subclonal reconstruction to present
+				update_ancestry(1, undef_rels[i][K], undef_rels[i][KP], last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
+					linFreqs=sbclr.linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
+					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
+				undef_rels[i][SBCLR] = sbclr
+			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+				eo.AvailableFreqLowerZero, eo.RelationshipAlreadySet) as e:
+				# update not possible
+				# thus, count one tree that was enumerated
+				total_count += 1
+				if total_count % 100 == 0:
+					logging.info("Total count: {0}".format(total_count))
+				# update relationship in subclonal reconstruction to other value
+				undef_rels[i][REL] = -1
+				# create subclonal reconstruction to update
+				if i == 0:
+					sbclr = copy.deepcopy(sbclr_0)
+				else:
+					sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
+				# update relationship in subclonal reconstruction to absent
+				total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
+					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR)
+				undef_rels[i][SBCLR] = sbclr
+
+		# current relationship is present
+		elif i < len(undef_rels) and undef_rels[i][REL] == 1:
+			# set relationship to absent
+			undef_rels[i][REL] = -1
+			# next steps not needed for testing whether iteration finds all settings
+			if test_iteration:
+				i += 1
+				continue
+			# create subclonal reconstruction to update
+			if i == 0:
+				sbclr = copy.deepcopy(sbclr_0)
+			else:
+				sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
+			total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
+				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR)
+			undef_rels[i][SBCLR] = sbclr
+
+		# current relationship is absent
+		elif i < len(undef_rels) and undef_rels[i][REL] == -1:
+			# look for last relationship that was set to present
+			i -= 1
+			while i >= 0 and undef_rels[i][REL] != 1:
+				i -= 1
+			# no relationship is present anymore, this means all possible settings where tried
+			if i < 0:
+				break
+			# last present relationship is found
+			if undef_rels[i][REL] == 1:
+				# set following relationships to ambiguous again
+				for j in range(i+1, len(undef_rels)):
+					undef_rels[j][REL] = 0
+					undef_rels[j][SBCLR] = None
+			# decrease i because it's going to be increased after condistions
+			i -= 1
+
+		# all relationships were set
+		elif i == len(undef_rels):
+			i -= 1
+
+			# when function should be tested, append current setting to list
+			if test_iteration:
+				all_options.append([x[REL] for x in undef_rels])
+				continue
+			# current subclonal reconstruction is complete
+			total_count += 1
+			if total_count % 100 == 0:
+				logging.info("Total count: {0}".format(total_count))
+
+			# check sum rule
+			if check_sum_rule(my_lineages, undef_rels[i][SBCLR].zmco.z_matrix):
+				valid_count += 1
+				if valid_count % 100 == 0:
+					logging.info("Valid count: {0}".format(valid_count))
+
+				# if Z-matrix should be written to file and maximum number in file is not reached yet
+				if filename is not None and valid_count <= count_threshold:
+					with open(filename, "a") as f:
+						my_string = json.dumps(convert_zmatrix_0_m1(undef_rels[i][SBCLR].zmco.z_matrix))
+						f.write("{0}\n".format(my_string))
+				# testing whether function allows and forbids correct subclonal reconstructions
+				if test_reconstructions:
+					reconstructions.append(undef_rels[i][SBCLR])
+			# decrease i because it's going to be increased after condistions
+			i -= 1
+
+		i +=  1
+
+	# testing iteration
+	if test_iteration:
+		return all_options
+	# testing whether function allows and forbids correct subclonal reconstructions
+	if test_reconstructions:
+		return reconstructions, total_count, valid_count
+	
+	return total_count, valid_count
+
+def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR):
+	undef_rels[i][REL] = value
+	# update relationship in subclonal reconstruction
+	try:
+		update_ancestry(value, k, kp, last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
+			linFreqs=sbclr.linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
+			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
+		undef_rels[i][SBCLR] = sbclr
+	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+		eo.AvailableFreqLowerZero, eo.RelationshipAlreadySet) as e:
+		# update not possible
+		# thus, count one tree that was enumerated
+		total_count += 1
+		if total_count % 100 == 0:
+			logging.info("Total count: {0}".format(total_count))
+		# decrease i because it's going to be increased after condistions in main loop
+		i -= 1
+
+	return total_count, i
+
 # given a Z-matrix, counts how often lineage relationships are ambiguous
 def count_ambiguous_relationships(z_matrix):
 	z_matrix = np.asarray(z_matrix)
@@ -67,18 +262,20 @@ def update_ancestry_w_preprocessing(my_lineages, z_matrix, ppm, seg_num, value, 
 		zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
 
 # given a subclonal reconstruction with lineages, mutations, Z-matrix and possible parent matrix, check whether it is valid
-def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num):
+def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
+	ssm_infl_cnv_same_lineage=None, check_only_validity_possible=False):
 	# get present mutations from lineages
 	lineage_num = len(my_lineages)
 	# go once through segment and get gains, losses and SSMs
-	gain_num = []
-	loss_num = []
-	CNVs = []
-	present_ssms = []
-	ssm_infl_cnv_same_lineage = []
-	# iterate through all segments once to get all CN changes and SSMs appearances
-	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
-		ssm_infl_cnv_same_lineage)
+	if gain_num is None and loss_num is None and CNVs is None and present_ssms is None and ssm_infl_cnv_same_lineage is None:
+		gain_num = []
+		loss_num = []
+		CNVs = []
+		present_ssms = []
+		ssm_infl_cnv_same_lineage = []
+		# iterate through all segments once to get all CN changes and SSMs appearances
+		get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+			ssm_infl_cnv_same_lineage)
 
 	# copy elements
 	origin_present_ssms = copy.deepcopy(present_ssms)
@@ -114,6 +311,9 @@ def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num):
 			gain_num, loss_num, CNVs, present_ssms)
 	except eo.MyException as e:
 		return False
+
+	if check_only_validity_possible:
+		return True
 
 	if not (np.asarray(z_matrix) == np.asarray(origin_z_matrix)).all():
 		return False
@@ -995,7 +1195,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 		return True
 
 	if zmco.z_matrix[kstar][k] != 0:
-		raise eo.MyException("Z[{0}][{1}] is already {2}, cannot be set to {3}.".format(kstar, k, zmco.z_matrix[kstar][k], value))
+		raise eo.RelationshipAlreadySet("Z[{0}][{1}] is already {2}, cannot be set to {3}.".format(kstar, k, zmco.z_matrix[kstar][k], value))
 
 	zmco.z_matrix[kstar][k] = value
 
@@ -3094,6 +3294,16 @@ class Z_Matrix_Co(object):
 		self.present_ssms = present_ssms
 		self.CNVs = CNVs
 		self.matrix_after_first_round = matrix_after_first_round
+
+class Subclonal_Reconstruction_for_DFS(object):
+
+	def __init__(self, zmco, present_ssms, ppm, defparent, linFreqs, avFreqs):
+		self.zmco = zmco
+		self.present_ssms = present_ssms
+		self.ppm = ppm
+		self.defparent = defparent
+		self.linFreqs = linFreqs
+		self.avFreqs = avFreqs
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
