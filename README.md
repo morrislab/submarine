@@ -77,7 +77,7 @@ For each CNA, the following information is given: the lineage it is assigned to 
 
 To run SubMARine on the provided test files type:
 ```
-python2 submarine.py --parents_file submarine_example/ex1_parents.csv 
+python3 submarine.py --parents_file submarine_example/ex1_parents.csv 
   --freq_file submarine_example/ex1_frequencies.csv 
   --cna_file submarine_example/ex1_cnas.csv --ssm_file submarine_example/ex1_ssms.csv 
   --seg_file submarine_example/ex1_seg_num.csv --output_prefix my_test 
@@ -87,7 +87,7 @@ python2 submarine.py --parents_file submarine_example/ex1_parents.csv
 
 To start the depth-first search type:
 ```
-python2 submarine.py --dfs --lineage_file my_test.lineage.json 
+python3 submarine.py --dfs --lineage_file my_test.lineage.json 
   --seg_file submarine_example/ex1_seg_num.csv --z_matrix_file my_test.zmatrix 
   --output_prefix my_test--write_trees_to_file
 ```
