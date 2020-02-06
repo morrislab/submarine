@@ -19,7 +19,7 @@ import copy
 from itertools import compress
 import json
 
-def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, check_validity=False, test_iteration=False,
+def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
 	test_reconstructions=False):
 	
 	total_count = 0
@@ -31,8 +31,8 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	K = 1
 	KP = 2
 	SBCLR = 3
-	for k in range(len(z_matrix)):
-		for kp in range(k+1, len(z_matrix)):
+	for kp in range(len(z_matrix)):
+		for k in range(0, kp):
 			if z_matrix[k][kp] == 0:
 				undef_rels.append([0, k, kp, None])
 
