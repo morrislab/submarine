@@ -43,18 +43,18 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(total_count, 8)
 		self.assertEqual(valid_count, 6)
 		self.assertEqual(len(reconstructions), 6)
-		z_matrix_1 = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1]]
-		z_matrix_2 = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		z_matrix_3 = [[-1, 1, 1, 1], [-1, -1, 1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		z_matrix_4 = [[-1, 1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		z_matrix_5 = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, -1, -1]]
-		z_matrix_6 = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
-		self.assertEqual(reconstructions[0].zmco.z_matrix, z_matrix_1)
-		self.assertEqual(reconstructions[1].zmco.z_matrix, z_matrix_2)
-		self.assertEqual(reconstructions[2].zmco.z_matrix, z_matrix_3)
-		self.assertEqual(reconstructions[3].zmco.z_matrix, z_matrix_4)
-		self.assertEqual(reconstructions[4].zmco.z_matrix, z_matrix_5)
-		self.assertEqual(reconstructions[5].zmco.z_matrix, z_matrix_6)
+		z_matrix_1 = np.asarray([[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1]])
+		z_matrix_2 = np.asarray([[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]])
+		z_matrix_3 = np.asarray([[-1, 1, 1, 1], [-1, -1, 1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]])
+		z_matrix_4 = np.asarray([[-1, 1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]])
+		z_matrix_5 = np.asarray([[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, -1, -1]])
+		z_matrix_6 = np.asarray([[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]])
+		self.assertTrue(np.array_equal(reconstructions[0].zmco.z_matrix, z_matrix_1))
+		self.assertTrue(np.array_equal(reconstructions[1].zmco.z_matrix, z_matrix_2))
+		self.assertTrue(np.array_equal(reconstructions[2].zmco.z_matrix, z_matrix_3))
+		self.assertTrue(np.array_equal(reconstructions[3].zmco.z_matrix, z_matrix_4))
+		self.assertTrue(np.array_equal(reconstructions[4].zmco.z_matrix, z_matrix_5))
+		self.assertTrue(np.array_equal(reconstructions[5].zmco.z_matrix, z_matrix_6))
 
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 
@@ -900,7 +900,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 3*3, 3)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		# supposed output
 		avFreqs_true = np.asarray([[0.2, 0.4], [0.7, 0.1], [0.1, 0.5]])
 		ppm_true = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
@@ -926,7 +926,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 4*4, 4)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [0]
@@ -952,7 +952,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 4*4, 4)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -978,7 +978,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 4*4, 4)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -1007,7 +1007,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 8*8, 8)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -1025,7 +1025,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 4*4, 4)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [0]
@@ -1053,7 +1053,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 				z_matrix, 4*4, 4)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -1081,7 +1081,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 					z_matrix, 5*5, 5)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -1109,7 +1109,7 @@ class ModelTest(unittest.TestCase):
 		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
 					z_matrix, 5*5, 5)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-				CNVs=None, matrix_after_first_round=z_matrix)
+				matrix_after_first_round=z_matrix)
 		seg_num = 1
 		zero_count = 10 # set to some number, doesn't need to make sense
 		gain_num = [1]
@@ -1155,7 +1155,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-				CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+				matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
@@ -1185,7 +1185,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-				CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+				matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
@@ -1214,7 +1214,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-			CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+			matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		ppm_true = [[0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0],
 			[0, 1, 0, 0, 0, 0]]
@@ -1251,7 +1251,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-			CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+			matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		ppm_true = [[0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0],
 			[0, 0, 0, 0, 1, 0, 0], [0, 1, 1, 0, 0, 0, 0]]
@@ -1302,7 +1302,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-			CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+			matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		ppm_true = [
 			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -1360,7 +1360,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-			CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+			matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		ppm_true = [
 			[0, 0, 0, 0, 0, 0, 0],
@@ -1404,7 +1404,7 @@ class ModelTest(unittest.TestCase):
 		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
 			ssm_infl_cnv_same_lineage)
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
-			CNVs=CNVs, matrix_after_first_round=copy.deepcopy(z_matrix))
+			matrix_after_first_round=copy.deepcopy(z_matrix))
 
 		ppm_true = [
 			[0, 0, 0, 0, 0],

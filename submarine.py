@@ -22,6 +22,8 @@ import json
 def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
 	test_reconstructions=False):
 	
+	z_matrix = np.asarray(z_matrix)
+
 	total_count = 0
 	valid_count = 0
 
@@ -40,7 +42,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	lin_num = len(my_lineages)
 	zero_count = lin_num * lin_num
 	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lin_num)
-	matrix_after_first_round = copy.deepcopy(z_matrix)
+	matrix_after_first_round = np.copy(z_matrix)
 	# go once through segments and get gains, losses and SSMs
 	gain_num = []
 	loss_num = []
@@ -50,8 +52,9 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	# iterate through all segments once to get all CN changes and SSMs appearances
 	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lineages,
 		ssm_infl_cnv_same_lineage)
+	present_ssms = np.asarray(present_ssms)
 	# combine information to Z-matrix and Co object
-	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, CNVs, matrix_after_first_round)
+	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, matrix_after_first_round)
 	# create variables needed for sum rule
 	last = None
 	defparent = None
@@ -62,7 +65,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 		# get definite parents and available frequencies
 		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
-	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, linFreqs, avFreqs)
+	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs)
 
 	# checks whether given partial subclonal reconstruction is valid
 	if not is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage,
@@ -96,7 +99,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 			try:
 				# update relationship in subclonal reconstruction to present
 				update_ancestry(1, undef_rels[i][K], undef_rels[i][KP], last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
-					linFreqs=sbclr.linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
+					linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
@@ -115,7 +118,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 					sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 				# update relationship in subclonal reconstruction to absent
 				total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR)
+					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs)
 				undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is present
@@ -132,7 +135,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 			else:
 				sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 			total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR)
+				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs)
 			undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is absent
@@ -194,12 +197,12 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	
 	return total_count, valid_count
 
-def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR):
+def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs):
 	undef_rels[i][REL] = value
 	# update relationship in subclonal reconstruction
 	try:
 		update_ancestry(value, k, kp, last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
-			linFreqs=sbclr.linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
+			linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
@@ -255,7 +258,7 @@ def update_ancestry_w_preprocessing(my_lineages, z_matrix, ppm, seg_num, value, 
 		CNVs=CNVs, present_ssms=present_ssms, z_matrix_after_CN_influence_check=origin_z_matrix)
 	assert (np.asarray(origin_z_matrix) == np.asarray(z_matrix)).all()
 	triplets_list = [[triplet_xys, triplet_ysx, triplet_xsy]]
-	zmcos = create_Z_Matrix_Co_objects([z_matrix], origin_z_matrix, [present_ssms], CNVs, triplets_list)
+	zmcos = create_Z_Matrix_Co_objects([z_matrix], origin_z_matrix, [present_ssms], triplets_list)
 	zmco = zmcos[0]
 
 	update_ancestry(value, k, kprime, last=last, ppm=ppm, defparent=defp, linFreqs=frequencies, avFreqs=avFreqs, zmco=zmco, seg_num=seg_num, 
@@ -303,7 +306,7 @@ def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num=None, 
 		return False
 
 	# propagate sum rule
-	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], CNVs, triplets_list)
+	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], triplets_list)
 	zmco = zmcos[0]
 	frequencies = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	try:
@@ -337,7 +340,7 @@ def get_definite_parents_available_frequencies(freqs, ppm):
 			defp[k] = pp[0]
 
 	# compute available freq
-	avFreqs = copy.deepcopy(freqs)
+	avFreqs = np.copy(freqs)
 	for k in range(lin_num):
 		children = np.where(defp == k)[0]
 		for child in children:
@@ -499,7 +502,7 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lineages,
 		ssm_infl_cnv_same_lineage)
 	# combine information to Z-matrix and Co object
-	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, CNVs, matrix_after_first_round)
+	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, matrix_after_first_round)
 
 	if recursive == False:
 		raise Exception("Not supported anymore")
@@ -819,7 +822,7 @@ def go_frequency_mode(freq_file=None, userZ_file=None, output_prefix=None, overw
 		ssm_infl_cnv_same_lineage)
 	triplets_list = [[triplet_xys, triplet_ysx, triplet_xsy]]
 	z_matrix = np.asarray(z_matrix)
-	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], CNVs, triplets_list)[0]
+	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], triplets_list)[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
@@ -1080,7 +1083,7 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 		loss_num=loss_num))
 	# check whether sum rule leads to unambiguous relationships
 	logging.debug("using sum rule")
-	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], CNVs, triplets_list)
+	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], triplets_list)
 	if len(zmcos) > 1:
 		raise eo.MyException("zmcos should only have one entry!")
 	zmco = zmcos[0]
@@ -1218,10 +1221,10 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 	if value == 1:
 		# move unphased SSMs if necessary
 		try:
-			phasing_allows_relation(kstar, k, zmco.matrix_after_first_round, zmco.present_ssms, zmco.CNVs, value)
+			phasing_allows_relation(kstar, k, zmco.matrix_after_first_round, zmco.present_ssms, CNVs, value)
 		except eo.ADRelationNotPossible as e:
 			raise e
-		move_unphased_SSMs_if_necessary(kstar, k, zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round, value)
+		move_unphased_SSMs_if_necessary(kstar, k, zmco.present_ssms, CNVs, zmco.matrix_after_first_round, value)
 		# propagte absence rules
 		if last is not None:
 			dummy_zero_count = len(zmco.z_matrix)*len(zmco.z_matrix)
@@ -1243,7 +1246,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 	dummy_zero_count = len(zmco.z_matrix) * len(zmco.z_matrix)
 	try:
 		update_Z_matrix_iteratively(zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
-			(kstar, k), zmco.present_ssms, zmco.CNVs, zmco.matrix_after_first_round,
+			(kstar, k), zmco.present_ssms, CNVs, zmco.matrix_after_first_round,
 			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent)
 	except eo.MyException as e:
 		raise e
@@ -1310,12 +1313,12 @@ def des_are_potential_parents(k_star, k, zmatrix, ppm):
 
     return False
 
-def create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, present_ssms_list, CNVs, triplets_list):
+def create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, present_ssms_list, triplets_list):
 	zmcos = []
 	for i in range(len(z_matrix_list)):
 		zmco = Z_Matrix_Co(z_matrix=z_matrix_list[i], triplet_xys=triplets_list[i][0], 
 			triplet_ysx=triplets_list[i][1], triplet_xsy=triplets_list[i][2], 
-			present_ssms=present_ssms_list[i], CNVs=CNVs, matrix_after_first_round=z_matrix_fst_rnd)
+			present_ssms=present_ssms_list[i], matrix_after_first_round=z_matrix_fst_rnd)
 		zmcos.append(zmco)
 	return zmcos
 
@@ -2478,7 +2481,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 	if len(list(current_CNVs[mutations].keys())) != 2 and mutations_B is None:
 		return zero_count
 
-	if current_present_ssms:
+	if current_present_ssms is not None:
 		lin_num = len(current_present_ssms[cons.UNPHASED])
 	else:
 		lin_num = len(present_ssms_list[0][0][cons.UNPHASED])
@@ -3286,23 +3289,21 @@ def sort_snps_ssms(mut_list):
 
 class Z_Matrix_Co(object):
 
-	def __init__(self, z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, CNVs, matrix_after_first_round):
+	def __init__(self, z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, matrix_after_first_round):
 		self.z_matrix = z_matrix
 		self.triplet_xys = triplet_xys
 		self.triplet_ysx = triplet_ysx
 		self.triplet_xsy = triplet_xsy
 		self.present_ssms = present_ssms
-		self.CNVs = CNVs
 		self.matrix_after_first_round = matrix_after_first_round
 
 class Subclonal_Reconstruction_for_DFS(object):
 
-	def __init__(self, zmco, present_ssms, ppm, defparent, linFreqs, avFreqs):
+	def __init__(self, zmco, present_ssms, ppm, defparent, avFreqs):
 		self.zmco = zmco
 		self.present_ssms = present_ssms
 		self.ppm = ppm
 		self.defparent = defparent
-		self.linFreqs = linFreqs
 		self.avFreqs = avFreqs
 
 if __name__ == '__main__':
