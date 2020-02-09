@@ -207,7 +207,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	# if ambiguity should be analyzed during runtime
 	output = ""
 	if analyze_ambiguity_during_runtime:
-		for i in range(number_undef_rels):
+		for j in range(number_undef_rels):
 			if undef_rels[j][USED_P1] == False or undef_rels[j][USED_M1] == False:
 				output += "False, {0}, {1}, {2}, {3}\n".format(undef_rels[j][K], undef_rels[j][KP], 
 					undef_rels[j][USED_P1], undef_rels[j][USED_M1])	
