@@ -20,7 +20,7 @@ from itertools import compress
 import json
 
 def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
-	test_reconstructions=False):
+	test_reconstructions=False, analyze_ambiguity_during_runtime=False):
 	
 	z_matrix = np.asarray(z_matrix)
 
@@ -33,10 +33,13 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 	K = 1
 	KP = 2
 	SBCLR = 3
+	USED_P1 = 4
+	USED_M1 = 5
 	for kp in range(len(z_matrix)):
 		for k in range(0, kp):
 			if z_matrix[k][kp] == 0:
-				undef_rels.append([0, k, kp, None])
+				undef_rels.append([0, k, kp, None, False, False])
+	number_undef_rels = len(undef_rels)
 
 	# different variables needed for this function
 	lin_num = len(my_lineages)
@@ -81,9 +84,9 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 
 	# pointer i iterates through list with undefined relationships
 	i = 0
-	while i < len(undef_rels) + 1:
+	while i < number_undef_rels + 1:
 		# current relationship is undefined
-		if i < len(undef_rels) and undef_rels[i][REL] == 0:
+		if i < number_undef_rels and undef_rels[i][REL] == 0:
 			# set relationship to present
 			undef_rels[i][REL] = 1
 			# next steps not needed for testing whether iteration finds all settings
@@ -122,7 +125,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 				undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is present
-		elif i < len(undef_rels) and undef_rels[i][REL] == 1:
+		elif i < number_undef_rels and undef_rels[i][REL] == 1:
 			# set relationship to absent
 			undef_rels[i][REL] = -1
 			# next steps not needed for testing whether iteration finds all settings
@@ -139,7 +142,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 			undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is absent
-		elif i < len(undef_rels) and undef_rels[i][REL] == -1:
+		elif i < number_undef_rels and undef_rels[i][REL] == -1:
 			# look for last relationship that was set to present
 			i -= 1
 			while i >= 0 and undef_rels[i][REL] != 1:
@@ -150,14 +153,14 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 			# last present relationship is found
 			if undef_rels[i][REL] == 1:
 				# set following relationships to ambiguous again
-				for j in range(i+1, len(undef_rels)):
+				for j in range(i+1, number_undef_rels):
 					undef_rels[j][REL] = 0
 					undef_rels[j][SBCLR] = None
 			# decrease i because it's going to be increased after condistions
 			i -= 1
 
 		# all relationships were set
-		elif i == len(undef_rels):
+		elif i == number_undef_rels:
 			i -= 1
 
 			# when function should be tested, append current setting to list
@@ -174,12 +177,25 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 				valid_count += 1
 				if valid_count % 100 == 0:
 					logging.info("Valid count: {0}".format(valid_count))
+					if analyze_ambiguity_during_runtime:
+						used_p1 = [x[USED_P1] for x in undef_rels]
+						used_m1 = [x[USED_M1] for x in undef_rels]
+						logging.info("Ambiguity: {0}".format(np.logical_and(used_p1, used_m1).all()))
 
 				# if Z-matrix should be written to file and maximum number in file is not reached yet
 				if filename is not None and valid_count <= count_threshold:
 					with open(filename, "a") as f:
 						my_string = json.dumps(convert_zmatrix_0_m1(undef_rels[i][SBCLR].zmco.z_matrix))
 						f.write("{0}\n".format(my_string))
+				# if used relationships should be anaylzed during runtime
+				if analyze_ambiguity_during_runtime:
+					for j in range(number_undef_rels):
+						if undef_rels[j][REL] == 1:
+							undef_rels[j][USED_P1] = True
+						elif undef_rels[j][REL] == -1:
+							undef_rels[j][USED_M1] = True
+						else:
+							raise eo.MyException("should never happen")
 				# testing whether function allows and forbids correct subclonal reconstructions
 				if test_reconstructions:
 					reconstructions.append(undef_rels[i][SBCLR])
@@ -188,12 +204,26 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 
 		i +=  1
 
+	# if ambiguity should be analyzed during runtime
+	output = ""
+	if analyze_ambiguity_during_runtime:
+		for i in range(number_undef_rels):
+			if undef_rels[j][USED_P1] == False or undef_rels[j][USED_M1] == False:
+				output += "False, {0}, {1}, {2}, {3}\n".format(undef_rels[j][K], undef_rels[j][KP], 
+					undef_rels[j][USED_P1], undef_rels[j][USED_M1])	
+		if output == "":
+			output = "True\n"
+
 	# testing iteration
 	if test_iteration:
 		return all_options
 	# testing whether function allows and forbids correct subclonal reconstructions
 	if test_reconstructions:
 		return reconstructions, total_count, valid_count
+	# if ambiguity should be analyzed during runtime
+	if analyze_ambiguity_during_runtime:
+		return total_count, valid_count, output
+
 	
 	return total_count, valid_count
 

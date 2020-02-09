@@ -26,7 +26,8 @@ class ModelTest(unittest.TestCase):
 		seg_num = 1
 		all_options = [[1, 1, 1], [1, 1, -1], [1, -1, 1], [1, -1, -1,], [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, -1, -1]]
 
-		self.assertEqual(all_options, submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True))
+		all_options2 = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True)
+		self.assertEqual(all_options, all_options2)
 
 		# 4 lineages, no mutations, all valid Z-matrices possible
 		# two Z-matrices are not possible because of tree rules, some values already get updated at earlier undefined entries
@@ -55,6 +56,24 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.array_equal(reconstructions[3].zmco.z_matrix, z_matrix_4))
 		self.assertTrue(np.array_equal(reconstructions[4].zmco.z_matrix, z_matrix_5))
 		self.assertTrue(np.array_equal(reconstructions[5].zmco.z_matrix, z_matrix_6))
+
+		# same input as before but this time only ambiguity analysis is tested
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True)
+
+		self.assertEqual(output, "True\n")
+
+		# 4 lineages, no mutations, only one valid Z-matrices possible
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, -1], [-1, -1, -1, 1], [-1, -1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.2], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True)
+
+		self.assertEqual(output, "False, 1, 2, False, True\n")
 
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 
