@@ -805,7 +805,7 @@ def set_z_user_constraints(z_matrix, user_z):
 def go_frequency_clonal_cna_mode(freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, output_prefix=None, overwrite=False):
 	pass
 
-def go_frequency_mode(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False):
+def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False):
 	# checks whether output files exist already
 	if check_overwrite(overwrite, output_prefix) == False:
 		return
@@ -3352,7 +3352,7 @@ if __name__ == '__main__':
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
     parser.add_argument("--write_trees_to_file", action='store_true', help="writes trees to file")
     parser.add_argument("--tree_threshold", default=25000, type=int, help ="maximal number of trees that is written to file")
-    parser.add_argument("--frequency_mode", action='store_true', help="starts frequency mode")
+    parser.add_argument("--basic_version", action='store_true', help="starts frequency mode")
     args = parser.parse_args()
 
     if args.dfs:
@@ -3361,8 +3361,8 @@ if __name__ == '__main__':
         else:
             only_number = True
         depth_first_search(args.lineage_file, args.seg_file, args.z_matrix_file, args.output_prefix, only_number, args.tree_threshold, args.overwrite)
-    elif args.frequency_mode:
-        go_frequency_mode(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
+    elif args.basic_version:
+        go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 

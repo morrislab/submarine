@@ -98,11 +98,11 @@ class ModelTest(unittest.TestCase):
 		with self.assertRaises(eo.MyException):
 			mapping = submarine.create_ID_ordering_mapping(sorted_indices, lin_ids)
 
-	def test_go_frequency_mode(self):
+	def test_go_basic_version(self):
 		# no user constraints, works
 		freq_file = "testdata/unittests/frequencies2.csv"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file)
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -130,7 +130,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies2.csv"
 		userZ_file = "testdata/unittests/userZ.csv"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file, userZ_file=userZ_file)
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -159,13 +159,13 @@ class ModelTest(unittest.TestCase):
 		userZ_file = "testdata/unittests/userZ_2.csv"
 
 		with self.assertRaises(eo.MyException):
-			my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file, userZ_file=userZ_file)
+			my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
 
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		with self.assertRaises(eo.NoParentsLeft):
-			my_lins, z_matrix, avFreqs, ppm = submarine.go_frequency_mode(freq_file=freq_file)
+			my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file)
 
 	def test_get_lineages_from_freqs(self):
 
