@@ -805,10 +805,17 @@ def set_z_user_constraints(z_matrix, user_z):
 def go_frequency_clonal_cna_mode(freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, output_prefix=None, overwrite=False):
 	pass
 
-def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False):
+def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True):
 	# checks whether output files exist already
 	if check_overwrite(overwrite, output_prefix) == False:
 		return
+
+	# create logging file
+	if use_logging:
+		for handler in logging.root.handlers[:]:
+			logging.root.removeHandler(handler)
+		log_file_name = "{0}.log".format(output_prefix)
+		logging.basicConfig(filename=log_file_name, filemode='w', level=logging.INFO)
 
 	# create lineage object list
 	my_lins, sorting_id_mapping = get_lineages_from_freqs(freq_file)
@@ -867,15 +874,18 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	# convert values in Z-matrix to values used in paper
 	z_matrix_for_output = convert_zmatrix_0_m1(zmco.z_matrix)
 
-	# if no output prefix is given, results are not written to files but returned
-	if output_prefix is None:
-		return my_lins, z_matrix_for_output, avFreqs, ppm
 
-	# print to file
-	logging.info("Printing results to file.")
-	oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
-	np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
-	oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+	# if no output prefix is given, results are not written to files but returned
+	if output_prefix is not None:
+		# print to file
+		logging.debug("Printing results to file.")
+		oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
+		np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
+		oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+
+	logging.info("SubMARine is done.")
+
+	return my_lins, z_matrix_for_output, avFreqs, ppm
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -953,6 +963,9 @@ def convert_zmatrix_for_internal_use(z_matrix):
 
 # given the lineage frequencies, create a lineage object list
 def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=None, lin_ids=None):
+	
+	logging.info("Sorting subclones according to average frequencies.")
+
 	# get frequencies
 	if freq_file is not None:
 		freqs, lin_ids = oio.read_frequencies(freq_file, ordering_given=False, return_ids=True)
@@ -1008,6 +1021,7 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 # creates a mapping between IDs of lineages and ordering according to their frequencies
 def create_ID_ordering_mapping(sorted_indices, lin_ids):
 	mapping = {}
+	output_message = ["Subclone index to ID mapping: 0->germline"]
 	for i in range(len(sorted_indices)):
 		my_key = lin_ids[sorted_indices[i]]
 		try:
@@ -1018,6 +1032,9 @@ def create_ID_ordering_mapping(sorted_indices, lin_ids):
 		except TypeError:
 			raise eo.MyException("lineage ID has to be unique.")
 
+		output_message.append("{0}->{1}".format(i+1, my_key))
+	
+	logging.info(", ".join(output_message))
 	return mapping
 
 # given information about parents, frequencies, cnas and ssms in a file, create a lineage object

@@ -102,7 +102,7 @@ class ModelTest(unittest.TestCase):
 		# no user constraints, works
 		freq_file = "testdata/unittests/frequencies2.csv"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file)
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -129,8 +129,10 @@ class ModelTest(unittest.TestCase):
 		# with user constraints, works
 		freq_file = "testdata/unittests/frequencies2.csv"
 		userZ_file = "testdata/unittests/userZ.csv"
+		output_prefix = "testdata/unittests/out_result4"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
+		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file, use_logging=True, 
+			output_prefix=output_prefix, overwrite=True)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
