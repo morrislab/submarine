@@ -18,9 +18,10 @@ This file gives the parent of each cancerous lineage.
 
 `freq_file`:
 This file gives the subclonal frequencies across `N` tumor samples of the same patient.
-* `lineage`: index of subclone.
-* `frequencies`: tab-delimited frequencies across `N` tumor samples.
-Note that the order of subclones implied by their indices has to be consistent with their frequencies. The lineages have to be sorted in decreasing order of their frequencies in the first sample, with frequency ties being broken by the subsequent samples.
+* `subclone_ID`: ID of subclone
+* `frequencies`: tab-delimited frequencies across `N` tumor samples
+
+Note that the germline is not part of this frequency file.
 
 <!---`cna_file`:
 This file shows the assignment of CNAs to segments, lineages and phases. Furthermore, it indicates the type of the CNA and can also show the chromosome, start and end position.
@@ -48,9 +49,9 @@ Furthermore, the user can provide additional information which ancestral relatio
 
 `userZ_file`:
 This file can be provided by the user and indicates which ancestor-descendant relationships between subclones are not allowed to be changed by SubMARine.
-* `ancestor`: index of subclone with lower index, thus higher frequency in the first sample.
-* `descendant`: index of subclone with higher index, thus lower frequency in the first sample.
-* `relationship`: whether subclone with lower index should be an ancestor of lineage with higher index, shown as `1`, or not, shown as `0`.
+* `ancestor_ID`: ID of first subclone
+* `descendant_ID`: ID of second subclone
+* `relationship`: whether the first subclone should be an ancestor or the second subclone, shown as `1`, or not, shown as `0`
 
 <!---`userSSM_file`:
 This file can be provided by the user and indicates for which SSMs the phasing cannot be changed by SubMARine. Note that SSMs of one segment and phase of a lineage can be addressed only as whole and not individually.
@@ -82,17 +83,13 @@ For each CNA, the following information is given: the lineage it is assigned to 
 
 To run SubMARine on the provided test files type:
 ```
-python3 submarine.py --parents_file submarine_example/ex1_parents.csv 
-  --freq_file submarine_example/ex1_frequencies.csv 
-  --cna_file submarine_example/ex1_cnas.csv --ssm_file submarine_example/ex1_ssms.csv 
-  --seg_file submarine_example/ex1_seg_num.csv --output_prefix my_test 
-  --userZ_file submarine_example/ex1_userZ.csv 
-  --userSSM_file submarine_example/ex1_userSSMs.csv --overwrite
+python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
+  --userZ_file submarine_example/userZ.csv --output_prefix my_test 
 ```
 
-To start the depth-first search type:
+<!---To start the depth-first search type:
 ```
 python3 submarine.py --dfs --lineage_file my_test.lineage.json 
   --seg_file submarine_example/ex1_seg_num.csv --z_matrix_file my_test.zmatrix 
   --output_prefix my_test--write_trees_to_file
-```
+```--->
