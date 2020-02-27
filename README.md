@@ -23,29 +23,27 @@ This file gives the subclonal frequencies across `N` tumor samples of the same p
 
 Note that the germline is not part of this frequency file.
 
-<!---`cna_file`:
-This file shows the assignment of CNAs to segments, lineages and phases. Furthermore, it indicates the type of the CNA and can also show the chromosome, start and end position.
-* `seg_index`: segment index of CNA.
-* `chr`: chromosome of CNA.
-* `start`: start position of CNA.
-* `end`: end position of CNA.
-* `lineage`: index of lineage the CNA is assigned to.
-* `phase`: allele the CNA is assigned to, can either be `A` or `B`.
-* `change`: copy number change of CNA. A loss has `-1`, a gain has a value greater or equal than `1`.
+`cna_file`:
+This file shows the assignment of CNAs to segments, subclones and phases. Furthermore, it indicates the type of the CNA.
+* `CNA_index`: index of CNA, must consecutive, starting at `0`
+* `seg_index`: segment index of CNA
+* `subclone_ID`: ID of subclone the CNA is assigned to
+* `phase`: allele the CNA is assigned to, can either be `A` or `B`
+* `change`: copy number change of CNA, a loss has `-1`, a gain has a value greater than or equal to `1`
 
 `ssm_file`:
-This file shows the assignment of SSMs to segments, lineages and eventually phases. Furthermore, it provides information whether an SSM is influenced by a copy number gain in the same lineage it is assigned to. The chromosome and position of the SSM can also be given.
-* `seg_index`: segment index of SSM.
-* `chr`: chromosome of SSM.
-* `pos`: position of SSM.
-* `lineage`: index of lineage the SSM is assigned to.
-* `phase`: allele the SSM is assigned to, can be `A` or `B`. If the SSM is not phased, this is indicated by the value `0`.
-* `cna_infl_same_lineage`: whether the SSM is influenced by a copy number gain that is assigned to the same lineage, segment and phase as the SSM. `1` if there exist such influence, `0` if not.
+This file shows the assignment of SSMs to segments and subclones. 
+* `SSM_index`: index of SSM, must consecutive, starting at `0`
+* `seg_index`: segment index of SSM
+* `subclone_ID`: ID of subclone the SSM is assigned to
 
-`seg_file`:
-This file gives the number of segments as a single number.--->
+`impact_file`:
+This file shows which CNAs impact the mutant copy numbers of which SSMs. 
+* `SSM_index`: index of SSM that is impacted by CNA in same line
+* `CNA_index`: index of CNA that impacts SSM in same line
 
-Furthermore, the user can provide additional information which ancestral relationships <!---or SSM phases---> are required and are not allowed to be changed by SubMARine. <!---This information can be provided in the following two tab-delimited text files.--->
+
+Furthermore, the user can provide additional information which ancestral relationships or SSM phases are required and are not allowed to be changed by SubMARine. This information can be provided in the following two tab-delimited text files.
 
 `userZ_file`:
 This file can be provided by the user and indicates which ancestor-descendant relationships between subclones are not allowed to be changed by SubMARine.
@@ -53,15 +51,17 @@ This file can be provided by the user and indicates which ancestor-descendant re
 * `descendant_ID`: ID of second subclone
 * `relationship`: whether the first subclone should be an ancestor or the second subclone, shown as `1`, or not, shown as `0`
 
-<!---`userSSM_file`:
+`userSSM_file`:
 This file can be provided by the user and indicates for which SSMs the phasing cannot be changed by SubMARine. Note that SSMs of one segment and phase of a lineage can be addressed only as whole and not individually.
-* `seg_index`: segment index of SSMs whose phase should not be changed.
-* `phase`: phase of SSMs that should not be changed.
-* `lineage`: lineage index SSMs are assigned to whose phase should not be changed.--->
+* `SSM_index`: index of SSMs whose phase should not be changed
+* `phase`: phase of SSMs that should not be changed, can either be `A` or `B`
 
 ## Output files
 
 SubMARine produces the following four output files.
+
+`<my_file_name>.log`:
+A log file.
 
 `<my_file_name>.zmatrix`:
 This file contains the ancestry matrix `Z` in a `json` list. If `Z[k][k'] = 1`, subclone `k` is an ancestor of subclone `k'`, if `Z[k][k'] = 0` subclone `k` is not an ancestor of subclone `k'`, and if `Z[k][k'] = -1`, subclone `k` could be an ancestor of subclone `k'`.
@@ -69,22 +69,27 @@ This file contains the ancestry matrix `Z` in a `json` list. If `Z[k][k'] = 1`, 
 `<my_file_name>.pospars`:
 This file contains the possible parent matrix `\tau` as a comma-separated text file. If subclone `k` is a possible parent of subclone `k'`, then `\tau[k'][k] = 1`, otherwise `\tau[k'][k] = 0`.
 
-<!---`<my_file_name>_ssms.csv`:
-This file contains the eventually updated phasing information for each SSM in the same format as the required input file `ssm_file`.--->
+`<my_file_name>.ssm_phasing.csv`:
+This file contains the phasing information for each SSM. The first column gives the SSM index and the second the phase. Note that `0` means unphased. 
 
 `<my_file_name>.lineage.json`:
-This file contains the sorted subclones of the built partial clone tree in `json` format. Each subclone contains a list of SSMs assigned to allele `A` (`ssms_a`) or `B` (`ssms_b`) or being unphased (`ssms`), a list of indices of all descendant subclone (`sublins`), a list with CNAs assigned to allele `A` (`cnvs_a`) or `B` (`cnvs_b`), and a list with the frequencies of the current subclone in all samples (`freq`).
+This file contains the sorted subclones of the built partial clone tree in `json` format. Each subclone contains a list of SSMs assigned to allele `A` (`ssms_a`) or `B` (`ssms_b`) or being unphased (`ssms`), a list of indices of all descendant subclones (`sublins`), a list with CNAs assigned to allele `A` (`cnvs_a`) or `B` (`cnvs_b`), and a list with the frequencies of the current subclone in all samples (`freq`).
 
-<!---For each SSM, the following information is given: the lineage it is assigned to (`lineage`), whether it is influenced by a copy number gain in the same lineage (`infl_cnv_same_lin`), its position on the chromosome (`pos`), its reference count (`ref_count`, we don't need this information in the context of SubMARine, thus the value is `-1`), its chromosome (`chr`), its variant count (`variant_count`, we don't need this information in the context of SubMARine, thus the value is `-1`), its phase (`phase`, with phase `A` being `0`, phase `B` being `1` and unphased being `2`), and its segment index (`seg_index`).
+For each SSM, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0`, phase `B` being `1` and unphased being `2`), its segment index (`seg_index`), and its own index (`index`). The other information (`infl_cnv_same_lin`, `pos`, `chr`, `ref_count`, `variant_count`) are not needed in the context of SubMARine and are thus set to `-1`.
 
-For each CNA, the following information is given: the lineage it is assigned to (`lineage`), its start position (`start`), its chromosome (`chr`), its end position (`end`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), and its relative copy number change (`change`).-->
+For each CNA, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), its own index (`index`) and its relative copy number change (`change`). The other information (`start`, `chr`, `end`) are not needed in the context of SubMARine and are thus set to `-1`.
 
 ## Running SubMARine
 
-To run SubMARine on the provided test files type:
+To run SubMARine on the provided test files in basic version type:
 ```
 python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
-  --userZ_file submarine_example/userZ.csv --output_prefix my_test 
+  --userZ_file submarine_example/userZ.csv --output_prefix my_test_basic 
+```
+
+To run SubMARine on the provided test files in extended version type:
+```
+python3 submarine.py --extended_version --freq_file submarine_example/frequencies3.csv --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv --impact_file submarine_example/impact3.csv --userZ_file submarine_example/userZ_3.csv --userSSM_file submarine_example/userSSM3.csv --output_prefix my_test_extended
 ```
 
 <!---To start the depth-first search type:
