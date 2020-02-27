@@ -99,7 +99,7 @@ To run SubMARine on the provided test files in extended version, type:
 python3 submarine.py --extended_version --freq_file submarine_example/frequencies3.csv 
   --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv 
   --impact_file submarine_example/impact3.csv --userZ_file submarine_example/userZ_3.csv 
-  --userSSM_file submarine_example/userSSM3.csv --output_prefix my_test_extended
+  --userSSM_file submarine_example/userSSM3.csv --output_prefix submarine_example/my_test_extended
 ```
 
 To start the depth-first search type:
