@@ -19,9 +19,21 @@ import copy
 from itertools import compress
 import json
 
-def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
-	test_reconstructions=False, analyze_ambiguity_during_runtime=False):
+def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
+	test_reconstructions=False, analyze_ambiguity_during_runtime=False, cna_file=None, ssm_file=None):
 	
+	# in order to get segment number, read CNA and SSM files
+	if seg_num is None:
+		if cna_file is None:
+			my_cnas = []
+		else:
+			my_cnas = oio.read_cnas(cna_file, use_cna_indices=True)
+		if ssm_file is None:
+			my_ssms = []
+		else:
+			my_ssms = oio.read_ssms(ssm_file, phasing=False, use_SSM_index=True)
+		seg_num = get_seg_num(my_cnas, my_ssms)
+
 	z_matrix = np.asarray(z_matrix)
 
 	total_count = 0
@@ -84,7 +96,7 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 
 	# pointer i iterates through list with undefined relationships
 	i = 0
-	while i < number_undef_rels + 1:
+	while i < number_undef_rels + 1 and number_undef_rels != 0:
 		# current relationship is undefined
 		if i < number_undef_rels and undef_rels[i][REL] == 0:
 			# set relationship to present
@@ -211,8 +223,13 @@ def new_dfs(z_matrix, my_lineages, seg_num, filename=None, count_threshold=-1, p
 			if undef_rels[j][USED_P1] == False or undef_rels[j][USED_M1] == False:
 				output += "False, {0}, {1}, {2}, {3}\n".format(undef_rels[j][K], undef_rels[j][KP], 
 					undef_rels[j][USED_P1], undef_rels[j][USED_M1])	
-		if output == "":
+		if output == "" and number_undef_rels > 0:
 			output = "True\n"
+		elif output == "":
+			output = "All ancestral relationships are defined.\n"
+
+	if number_undef_rels == 0:
+		valid_count = 1
 
 	# testing iteration
 	if test_iteration:
@@ -481,34 +498,52 @@ def upper_bound_number_reconstructions(ppm):
 		raise Exception("Wrong format of possible parent matrix.")
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
-def depth_first_search(lineage_file, seg_num_file, z_matrix_file, output_prefix, only_number=True, count_threshold=25000, overwrite=False):
-	if overwrite == False:
-		try:
-			oio.raise_if_file_exists("{0}_number.txt".format(output_prefix))
-		except eo.FileExistsException as e:
-			logging.error("Files for output prefix {0} exist already.\nTerminating Depth-first search.".format(output_prefix))
-			return
+def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False):
 
-	# get lineages
-	my_lins = oio.read_JSON_result_file(lineage_file)
-	# get seg_num
-	with open(seg_num_file, "r") as f:
-		for line in f:
-			seg_num = int(line.rstrip())
-	# get z_matrix
+	# get ppm data
+	ppm = np.loadtxt(ppm_file, delimiter=",")
+	# get Z-matrix
 	z_matrix = oio.read_matrix_from_file(z_matrix_file)
 	if z_matrix[0][0] == 0:
-		convert_zmatrix_for_internal_use(z_matrix)
+		z_matrix = convert_zmatrix_0_m1(z_matrix)	
+	# get lineages
+	my_lins = oio.read_JSON_result_file(lin_file)
+	# get CNAs
+	if cna_file is None:
+		my_cnas = []
+	else:
+		my_cnas = oio.read_cnas(cna_file, use_cna_indices=True)
+	# get SSMs
+	if ssm_file is None:
+		my_ssms = []
+	else:
+		my_ssms = oio.read_ssms(ssm_file, phasing=False, use_SSM_index=True)
+	# get number of segments
+	seg_num = get_seg_num(my_cnas, my_ssms)
 
-	z_matrices_file = None
-	if only_number == False:
-		z_matrices_file = "{0}.zmatrices".format(output_prefix)
+	# create filenames
+	valid_count_file = "{0}.valid_count.txt".format(output_prefix)
+	ambi_file = "{0}.ambiguity.txt".format(output_prefix)
+	if overwrite == False:
+		oio.raise_if_file_exists(valid_count_file)
+		oio.raise_if_file_exists(ambi_file)
+	# start logging
+	for handler in logging.root.handlers[:]:
+		logging.root.removeHandler(handler)
+	logging.basicConfig(filename="{0}.dfs.log".format(output_prefix), filemode='w', level=10)	
 
-	logging.info("Starting enumeration of trees.")
-	number = compute_number_ambiguous_recs(my_lins, seg_num, z_matrix, recursive=True, filename=z_matrices_file, count_threshold=count_threshold)
-	logging.info("Finished enumeration of trees.")
-	with open("{0}_number.txt".format(output_prefix), "w") as f:
-		f.write("{0}\n".format(number))
+	# compute correct number and all possible reconstructions
+	total_count, valid_count, output = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, analyze_ambiguity_during_runtime=True)
+
+	# last logging
+	logging.info("Total number of enumerated trees: {0}".format(total_count))
+	logging.info("Valid number of trees: {0}".format(valid_count))
+
+	# write to file
+	with open(valid_count_file, "w") as f:
+		f.write("{0}\n".format(valid_count))
+	with open(ambi_file, "w") as f:
+		f.write(output)
 
 
 # given a subclonal reconstruction with ambiguous lineage relationships, this function iterivly tries all possible
@@ -3673,21 +3708,17 @@ if __name__ == '__main__':
     parser.add_argument("--lineage_file", default=None, type=str, help ="File with lineage information from SubMARine")
     parser.add_argument("--impact_file", default=None, type=str, help ="File containing impact information of CNAs on SSMs")
     parser.add_argument("--z_matrix_file", default=None, type=str, help ="File with Z matrix from SubMARine")
+    parser.add_argument("--possible_parent_file", default=None, type=str, help ="File with possible parent matrix from SubMARine")
     parser.add_argument("--output_prefix", default=None, type=str, help ="prefix of output files")
     parser.add_argument("--overwrite", action='store_true', help="old output files will be overwritten")
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
-    parser.add_argument("--write_trees_to_file", action='store_true', help="writes trees to file")
-    parser.add_argument("--tree_threshold", default=25000, type=int, help ="maximal number of trees that is written to file")
     parser.add_argument("--basic_version", action='store_true', help="starts basic version")
     parser.add_argument("--extended_version", action='store_true', help="starts extended version")
     args = parser.parse_args()
 
     if args.dfs:
-        if args.write_trees_to_file:
-            only_number = False
-        else:
-            only_number = True
-        depth_first_search(args.lineage_file, args.seg_file, args.z_matrix_file, args.output_prefix, only_number, args.tree_threshold, args.overwrite)
+        depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
+                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     elif args.extended_version:

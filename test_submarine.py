@@ -155,6 +155,11 @@ class ModelTest(unittest.TestCase):
 
 	def test_get_seg_num(self):
 
+		# no mutations given
+		my_cnas = []
+		my_ssms = []
+		self.assertEqual(submarine.get_seg_num(my_cnas, my_ssms), 1)
+
 		# CNA has highest index
 		cna1 = cnv.CNV(1, 0, 0, 1, 10)
 		cna1.phase = cons.A
