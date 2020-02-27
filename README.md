@@ -89,12 +89,18 @@ python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.
 
 To run SubMARine on the provided test files in extended version type:
 ```
-python3 submarine.py --extended_version --freq_file submarine_example/frequencies3.csv --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv --impact_file submarine_example/impact3.csv --userZ_file submarine_example/userZ_3.csv --userSSM_file submarine_example/userSSM3.csv --output_prefix my_test_extended
+python3 submarine.py --extended_version --freq_file submarine_example/frequencies3.csv 
+  --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv 
+  --impact_file submarine_example/impact3.csv --userZ_file submarine_example/userZ_3.csv 
+  --userSSM_file submarine_example/userSSM3.csv --output_prefix my_test_extended
 ```
 
-<!---To start the depth-first search type:
+To start the depth-first search type:
 ```
-python3 submarine.py --dfs --lineage_file my_test.lineage.json 
-  --seg_file submarine_example/ex1_seg_num.csv --z_matrix_file my_test.zmatrix 
-  --output_prefix my_test--write_trees_to_file
-```--->
+python3 submarine.py --dfs --possible_parent_file submarine_example/test_extended_version.pospars 
+  --z_matrix_file submarine_example/test_extended_version.zmatrix 
+  --lineage_file submarine_example/test_extended_version.lineage.json 
+  --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv 
+  --output_prefix submarine_example/test_extended_version 
+```
+When no CNAs and SSMs are given, simply do not use the `--cna_file` and the `--ssm_file` options.
