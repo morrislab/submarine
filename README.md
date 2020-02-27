@@ -84,7 +84,7 @@ For each CNA, the following information is given: the subclone it is assigned to
 To run SubMARine on the provided test files in basic version, type:
 ```
 python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
-  --userZ_file submarine_example/userZ.csv --output_prefix my_test_basic 
+  --userZ_file submarine_example/userZ.csv --output_prefix submarine_example/my_test_basic 
 ```
 
 To run SubMARine on the provided test files in basix version with SSMs and clonal CNAs, type:
