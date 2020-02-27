@@ -20,20 +20,8 @@ from itertools import compress
 import json
 
 def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
-	test_reconstructions=False, analyze_ambiguity_during_runtime=False, cna_file=None, ssm_file=None):
+	test_reconstructions=False, analyze_ambiguity_during_runtime=False):
 	
-	# in order to get segment number, read CNA and SSM files
-	if seg_num is None:
-		if cna_file is None:
-			my_cnas = []
-		else:
-			my_cnas = oio.read_cnas(cna_file, use_cna_indices=True)
-		if ssm_file is None:
-			my_ssms = []
-		else:
-			my_ssms = oio.read_ssms(ssm_file, phasing=False, use_SSM_index=True)
-		seg_num = get_seg_num(my_cnas, my_ssms)
-
 	z_matrix = np.asarray(z_matrix)
 
 	total_count = 0
@@ -1126,7 +1114,44 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 
 	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing
 
-def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True):
+# check whether all CNAs are assigned to subclone 1
+def check_all_clonal(my_cnas):
+	for current_cna in my_cnas:
+		if current_cna.lineage != 1:
+			raise eo.MyException("CNAs in basic version need to be all clonal but CNA {0} is assigned to subclone {1}.".format(
+				current_cna.index, current_cna.lineage))
+	
+	return True
+
+# check whether two alleles of the same segment got deleted
+def get_deleted_segments(my_cnas):
+	del_segments = []
+
+	sorted_cnas = sorted(my_cnas, key = lambda x: x.seg_index)
+	for i in range(len(sorted_cnas) - 1):
+		if sorted_cnas[i].seg_index == sorted_cnas[i+1].seg_index and sorted_cnas[i].phase == other_phase(sorted_cnas[i+1].phase
+			and sorted_cnas[i].change == -1 and sorted_cnas[i+1].change == -1):
+			del_segments.append(sorted_cnas[i].seg_index)
+
+	return del_segments
+
+# checks whether SSMs are assigned to the segments that are deleted
+def check_lost_alleles_for_basic(del_segments, my_ssms):
+
+	sorted_ssms = sorted(my_ssms, key = lambda x: x.seg_index)
+
+	del_seg_index = 0
+	for i in range(len(sorted_ssms)):
+		while sorted_ssms[i].seg_index > del_segments[del_seg_index] and del_seg_index < len(del_segments) - 1:
+			del_seg_index += 1
+		if sorted_ssms[i].seg_index == del_segments[del_seg_index]:
+			raise eo.MyException("Lost alleles constraint not satisfies. SSM {0} appears in deleted segment {1}.".format(
+				sorted_ssms[i].index, sorted_ssms[i].seg_index))
+
+	return True
+
+def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True, cna_file=None,
+	ssm_file=None):
 
 	# check whether output files exist already
 	# create logging file
@@ -1135,7 +1160,19 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	my_lins, sorting_id_mapping, lin_num, user_z = check_overwrite_logging_lineages_Z_constraints(overwrite=overwrite, 
 		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file)
 
-	# start SupMARine
+	if cna_file is not None:
+		logging.info("Preprocessing whether lost allele constraint is satisfied.")
+		my_cnas = oio.read_cnas(cna_file, sorting_id_mapping=sorting_id_mapping, use_cna_indices=True, lin_num=lin_num)
+		check_monotonicity(my_cnas)
+		check_all_clonal(my_cnas)
+		del_segments = get_deleted_segments(my_cnas)
+		if len(del_segments) != 0:
+			if ssm_file is not None:
+				my_ssms = oio.read_ssms(ssm_file, phasing=False, sorting_id_mapping=sorting_id_mapping, 
+					use_SSM_index=True, lin_num=lin_num)
+				check_lost_alleles_for_basic(del_segments, my_ssms)
+
+	# start SubMARine
 	logging.info("Starting SubMARine.")
 
 	# create Z-matrix, apply germline constraints and trivial relationships
@@ -1370,7 +1407,7 @@ def check_only_one_CNA_per_segment_lineage_phase(cna_list_per_lin_phase):
 	for i in range(len(cna_list_per_lin_phase)-1):
 		if cna_list_per_lin_phase[i].seg_index == cna_list_per_lin_phase[i+1].seg_index:
 			raise eo.MyException("CNAs {0} and {1} are in the same segment and thus cannot be assigned to the same "
-				"allele and lineage. Please combine them to one CNA.".format(cna_list_per_lin_phase[i].index,
+				"allele and subclone. Please combine them to one CNA.".format(cna_list_per_lin_phase[i].index,
 				cna_list_per_lin_phase[i+1].index))
 
 def add_SSMs(ssm_file=None, my_lins=None, lin_num=None, phasing=None, sorting_id_mapping=None, use_SSM_index=False, my_ssms=None):
@@ -3720,7 +3757,8 @@ if __name__ == '__main__':
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
                 cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     elif args.basic_version:
-        go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
+        go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
+		cna_file=args.cna_file, ssm_file=args.ssm_file)
     elif args.extended_version:
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,

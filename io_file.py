@@ -121,6 +121,8 @@ def read_cnas(my_file, sorting_id_mapping=None, use_cna_indices=False, lin_num=-
 				end = -1
 				cna_index_count += 1
 			cna = cnv.CNV(int(change), int(seg_index), int(chromosome), int(start), int(end))
+			if int(change) < -1:
+				raise eo.MyException("Loss cannot be smaller than -1 because of monotonicity restriction.")
 			if use_cna_indices:
 				cna.index = int(cna_index)
 			if phase == "A":

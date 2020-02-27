@@ -86,6 +86,86 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
 
+	def test_check_lost_alleles_for_basic(self):
+		# works
+		del_segments = [1, 3, 4]
+		ssm1 = snp_ssm.SSM()
+		ssm1.seg_index = 2
+		ssm1.index = 0
+		ssm2 = snp_ssm.SSM()
+		ssm2.seg_index = 5
+		ssm2.index = 1
+		ssm3 = snp_ssm.SSM()
+		ssm3.seg_index = 10
+		ssm3.index = 2
+		my_ssms = [ssm1, ssm2, ssm3]
+
+		self.assertTrue(submarine.check_lost_alleles_for_basic(del_segments, my_ssms))
+
+		# doesn't work
+		del_segments = [1, 3, 4]
+		ssm1 = snp_ssm.SSM()
+		ssm1.seg_index = 2
+		ssm1.index = 0
+		ssm2 = snp_ssm.SSM()
+		ssm2.seg_index = 6
+		ssm2.index = 1
+		ssm3 = snp_ssm.SSM()
+		ssm3.seg_index = 3
+		ssm3.index = 2
+		my_ssms = [ssm1, ssm2, ssm3]
+
+		with self.assertRaises(eo.MyException):
+			submarine.check_lost_alleles_for_basic(del_segments, my_ssms)
+
+	def test_get_deleted_segments(self):
+
+		cna1 = cnv.CNV(1, 0, 0, 1, 10)
+		cna1.phase = cons.A
+		cna1.lineage = 1
+		cna2 = cnv.CNV(-1, 3, 3, 1, 10)
+		cna2.phase = cons.A
+		cna2.lineage = 1
+		cna3 = cnv.CNV(-1, 3, 3, 1, 10)
+		cna3.phase = cons.B
+		cna3.lineage = 1
+		cna4 = cnv.CNV(-1, 5, 3, 1, 10)
+		cna4.phase = cons.A
+		cna4.lineage = 1
+		cna5 = cnv.CNV(-1, 5, 3, 1, 10)
+		cna5.phase = cons.B
+		cna5.lineage = 1
+		my_cnas = [cna2, cna1, cna4, cna3, cna5]
+
+		self.assertEqual([3, 5], submarine.get_deleted_segments(my_cnas))
+		
+
+	def test_check_all_clonal(self):
+
+		# all CNAs are clonal
+		cna1 = cnv.CNV(1, 0, 0, 1, 10)
+		cna1.phase = cons.A
+		cna1.lineage = 1
+		cna2 = cnv.CNV(1, 3, 3, 1, 10)
+		cna2.phase = cons.A
+		cna2.lineage = 1
+		my_cnas = [cna1, cna2]
+
+		self.assertTrue(submarine.check_all_clonal(my_cnas))
+
+		# not all CNAs are clonal
+		cna1 = cnv.CNV(1, 0, 0, 1, 10)
+		cna1.phase = cons.A
+		cna1.lineage = 1
+		cna2 = cnv.CNV(1, 3, 3, 1, 10)
+		cna2.phase = cons.A
+		cna2.lineage = 2
+		my_cnas = [cna1, cna2]
+
+		with self.assertRaises(eo.MyException):
+			submarine.check_all_clonal(my_cnas)
+
+
 	def test_check_monotonicity(self):
 
 		# A has gain and loss

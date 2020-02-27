@@ -242,6 +242,16 @@ class OnctopusIOTest(unittest.TestCase):
 		with self.assertRaises(eo.MyException):
 			cnas = oio.read_cnas(input_name, sorting_id_mapping=sorting_id_mapping, use_cna_indices=True, lin_num=lin_num)
 
+		# loss cannot be smaller than -1
+		input_name = "testdata/unittests/cnas5_wrong.csv"
+		sorting_id_mapping = {}
+		sorting_id_mapping["2"] = 1
+		sorting_id_mapping["3"] = 2
+		lin_num = 4
+
+		with self.assertRaises(eo.MyException):
+			cnas = oio.read_cnas(input_name, sorting_id_mapping=sorting_id_mapping, use_cna_indices=True, lin_num=lin_num)
+
 	def test_read_frequencies(self):
 		# ex1_frequencies.csv
 		input_name = "submarine_example/ex1_frequencies.csv"
