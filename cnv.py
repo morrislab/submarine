@@ -8,6 +8,7 @@ class CNV(object):
 		self.end = end
 		self.phase = -1
 		self.lineage = -1
+		self.index = -1
 
 	def __eq__(self, other):
 		return ((self.change, self.chr, self.start, self.end) == (other.change, other.chr, other.start, 

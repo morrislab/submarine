@@ -81,35 +81,130 @@ def read_frequencies(my_file, return_ids=False, ordering_given=True):
 		return freqs
 
 	if ordering_given == False:
-		return freqs, [f[0] for f in lins_freqs]
+		return freqs, [str(f[0]) for f in lins_freqs]
 
 	raise eo.MyException("nothing returned here")
 
-def read_cnas(my_file):
+def write_new_ssm_phasing(ssm_phasing, output_file, overwrite=False):
+	if overwrite == False:
+		raise_if_file_exists(output_file)
+
+	with open(output_file, "w") as f:
+		f.write("SSM_index\tphase\n")
+		for current_ssm in ssm_phasing:
+			if current_ssm[1] == cons.A:
+				phase = "A"
+			elif current_ssm[1] == cons.B:
+				phase = "B"
+			else:
+				phase = 0
+			f.write("{0}\t{1}\n".format(current_ssm[0], phase))
+
+def read_cnas(my_file, sorting_id_mapping=None, use_cna_indices=False, lin_num=-1):
 	my_cnas = []
 	first_line = True
+	cna_index_count = 0
 	with open(my_file, "r") as f:
 		for line in f:
 			if first_line:
 				first_line = False
 				continue
-			seg_index, chromosome, start, end, lineage, phase, change = line.rstrip().split("\t")
+			if use_cna_indices is False:
+				seg_index, chromosome, start, end, lineage, phase, change = line.rstrip().split("\t")
+			else:
+				cna_index, seg_index, lineage, phase, change = line.rstrip().split("\t")
+				if int(cna_index) != cna_index_count:
+					raise eo.MyException("CNAs have to be sorted in order of their indices, indices must go from "
+						"0 to L-1, where L is the total number of CNAs.")
+				chromosome = -1
+				start = -1
+				end = -1
+				cna_index_count += 1
 			cna = cnv.CNV(int(change), int(seg_index), int(chromosome), int(start), int(end))
+			if use_cna_indices:
+				cna.index = int(cna_index)
 			if phase == "A":
 				cna.phase = cons.A
 			elif phase == "B":
 				cna.phase = cons.B
 			else:
 				raise eo.MyException("undefined phase for CNA")
-			cna.lineage = int(lineage)
+			if sorting_id_mapping is None:
+				cna.lineage = int(lineage)
+			else:
+				try:
+					cna.lineage = sorting_id_mapping[lineage]
+				except KeyError:
+					raise eo.MyException("Subclone ID {0} wasn't used in frequency matrix".format(lineage))
+			if lin_num != -1:
+				if cna.lineage >= lin_num:
+					raise eo.MyException("CNA cannot be assign to subclone {0}. Only {1} subclones given.".format(
+						cna.lineage, lin_num))
 
 			my_cnas.append(cna)
 
 	return my_cnas
 
-def read_ssms(my_file, phasing=True):
+def get_SSM_constraints(userSSM_file=None, my_ssms=None):
+	ssm_num = len(my_ssms)
+
+	first_line = True
+	with open(userSSM_file, "r") as f:
+		for line in f:
+			if first_line:
+				first_line = False
+				continue
+			index, phase = line.rstrip().split("\t")
+			index = int(index)
+			if index >= ssm_num:
+				raise eo.MyException("User SSM constraints cannot be used. No SSM with index {0} "
+					"exists.".format(index))
+
+			# get user phase
+			if phase == "A":
+				phase = cons.A
+			elif phase == "B":
+				phase = cons.B
+			else:
+				raise eo.MyException("Phase type {0} for SSM {1} is invalid".format(phase, index))
+
+			# SSM has no phasing yet
+			if my_ssms[index].phase is None:
+				my_ssms[index].phase = phase
+			elif my_ssms[index].phase != phase:
+				raise eo.MyException("According to CNA impact, SSM {0} must have phase {1}. This contradicts with "
+					"user constraint for phase {2}".format(index, my_ssms[index].phase, phase))
+			
+
+def create_impact_matrix(impact_file=None, cna_num=-1, ssm_num=-1):
+	
+	# either no CNAs or SSMs exist, or no impact file is given
+	if impact_file is None or cna_num == -1 or ssm_num == -1:
+		return None
+
+	# create empty impact matrix
+	impact_matrix = np.zeros(ssm_num*cna_num).reshape(ssm_num, cna_num)
+
+	# read impact file and update matrix
+	first_line = True
+	with open(impact_file, "r") as f:
+		for line in f:
+			if first_line:
+				first_line = False
+				continue
+			ssm_index, cna_index = map(int, line.rstrip().split("\t"))
+			if cna_index >= cna_num:
+				raise eo.MyException("CNA index {0} is too high.".format(cna_index))
+			if ssm_index >= ssm_num:
+				raise eo.MyException("SSM index {0} is too high.".format(ssm_index))
+			impact_matrix[ssm_index][cna_index] = 1
+
+	return impact_matrix
+
+def read_ssms(my_file, phasing=True, sorting_id_mapping=None, use_SSM_index=False, lin_num=-1):
 	my_ssms = []
 	first_line = True
+	ssm_index_count = 0
 	with open(my_file, "r") as f:
 		for line in f:
 			if first_line:
@@ -117,12 +212,22 @@ def read_ssms(my_file, phasing=True):
 				continue
 			if phasing == True:
 				seg_index, chromosome, pos, lineage, phase, cna_infl_same_lineage = line.rstrip().split("\t")
-			else:
+			elif use_SSM_index == False:
 				seg_index, chromosome, pos, lineage = line.rstrip().split("\t")
+			else:
+				ssm_index, seg_index, lineage = line.rstrip().split("\t")
+				if int(ssm_index) != ssm_index_count:
+					raise eo.MyException("SSMs have to be sorted in order of their indices, indices must go from "
+						"0 to J-1, where J is the total number of SSMs.")
+				ssm_index_count += 1
+				chromosome = -1
+				(pos) = -1
 			ssm = snp_ssm.SSM()
 			ssm.chr = int(chromosome)
 			ssm.pos = int(pos)
 			ssm.seg_index = int(seg_index)
+			if use_SSM_index:
+				ssm.index = int(ssm_index)
 			if phasing == True:
 				if cna_infl_same_lineage == "0":
 					ssm.infl_cnv_same_lin = False
@@ -138,7 +243,18 @@ def read_ssms(my_file, phasing=True):
 					ssm.phase = cons.UNPHASED
 				else:
 					raise eo.MyException("undefined phase for SSM")
-			ssm.lineage = int(lineage)
+			if sorting_id_mapping is None:
+				ssm.lineage = int(lineage)
+			else:
+				try:
+					ssm.lineage = int(sorting_id_mapping[lineage])
+				except KeyError:
+					raise eo.MyException("Subclone ID {0} is used for SSMs but wasn't defined in frequency matrix.".format(
+						lineage))
+			if lin_num != -1:
+				if ssm.lineage >= lin_num:
+					raise eo.MyException("SSM cannot be assign to subclone {0}. Only {1} subclones given.".format(
+						ssm.lineage, lin_num))
 
 			my_ssms.append(ssm)
 
@@ -154,8 +270,8 @@ def read_userZ(my_file, lin_num, sorting_id_mapping=None):
 				continue
 			k, kp, v = list(map(int, line.rstrip().split("\t")))
 			if sorting_id_mapping is not None:
-				k = sorting_id_mapping[k]
-				kp = sorting_id_mapping[kp]
+				k = sorting_id_mapping[str(k)]
+				kp = sorting_id_mapping[str(kp)]
 			if v == 1:
 				z_matrix[k][kp] = 1
 			elif v == 0:

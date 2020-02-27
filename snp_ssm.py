@@ -9,6 +9,7 @@ class SNP_SSM(object):
 		self.infl_cnv_same_lin = False
 		self.phase = None
 		self.lineage = None
+		self.index = -1
 
 	#def __init__(self, chr, pos):
 	#	self.chr = chr

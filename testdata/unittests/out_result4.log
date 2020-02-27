@@ -1,0 +1,5 @@
+INFO:root:Parsing input information.
+INFO:root:Sorting subclones according to average frequencies.
+INFO:root:Subclone index to ID mapping: 0->germline, 1->2, 2->3, 3->1, 4->4
+INFO:root:Starting SubMARine.
+INFO:root:SubMARine is done.

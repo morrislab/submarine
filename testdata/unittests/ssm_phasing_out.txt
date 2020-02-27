@@ -1,0 +1,4 @@
+SSM_index	phase
+0	A
+1	B
+2	0

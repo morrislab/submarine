@@ -802,11 +802,8 @@ def set_z_user_constraints(z_matrix, user_z):
 				if user_z[k][kp] != 0:
 					z_matrix[k][kp] = user_z[k][kp]
 
-def go_frequency_clonal_cna_mode(freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, output_prefix=None, overwrite=False):
-	pass
-
-def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True):
-	# checks whether output files exist already
+def check_overwrite_logging_lineages_Z_constraints(overwrite=None, output_prefix=None, use_logging=None, freq_file=None, userZ_file=None):
+	# check whether output files exist already
 	if check_overwrite(overwrite, output_prefix) == False:
 		return
 
@@ -816,6 +813,8 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 			logging.root.removeHandler(handler)
 		log_file_name = "{0}.log".format(output_prefix)
 		logging.basicConfig(filename=log_file_name, filemode='w', level=logging.INFO)
+	
+	logging.info("Parsing input information.")
 
 	# create lineage object list
 	my_lins, sorting_id_mapping = get_lineages_from_freqs(freq_file)
@@ -826,9 +825,9 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	if userZ_file is not None:
 	    user_z = oio.read_userZ(userZ_file, lin_num, sorting_id_mapping=sorting_id_mapping)
 
-	# start SupMARine
-	logging.info("Starting SubMARine.")
+	return my_lins, sorting_id_mapping, lin_num, user_z
 
+def create_z_germline_trivial_user_vars_tree_rule(my_lins=None, user_z=None, lin_num=None):
 	# create Z-matrix, apply germline constraints and trivial relationships
 	z_matrix = get_Z_matrix(my_lins)[0]
 
@@ -841,9 +840,278 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	zero_count = lin_num * lin_num
 	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(
 	        z_matrix, zero_count, lin_num)
+
+	return z_matrix, triplet_xys, triplet_ysx, triplet_xsy
+
+# change SSM phasing if SSMs are impacted by CNA
+def change_ssm_phasing_according_to_impact(impact_matrix=None, my_ssms=None, my_cnas=None):
+	# no CNAs or SSMs are gicen
+	if impact_matrix is None:
+		return True
+	
+	# check each SSM
+	for current_ssm in my_ssms:
+		ssm_index = current_ssm.index
+		# SSM is impacted by CNAs
+		if impact_matrix[ssm_index].sum() > 0:
+			for cna_index in np.where(impact_matrix[ssm_index] == 1)[0]:
+				
+				if current_ssm.seg_index !=  my_cnas[cna_index].seg_index:
+					raise eo.MyException("SSM {0} cannot be impacted by CNA {1} since they are not "
+						"in the same segment.".format(ssm_index, cna_index))
+
+				# adapt phasing of SSM
+				if current_ssm.phase is None:
+					current_ssm.phase = my_cnas[cna_index].phase
+				# SSM is already phased to other allele
+				elif current_ssm.phase != my_cnas[cna_index].phase:
+					raise eo.MyException("Impact matrix is incorrect. SSM {0} cannot be "
+						"impacted by multiple CNAs with different phasing".format(ssm_index))
+
+	return True
+
+# goes through all CNAs and SSMs and finds largest segment index to get number of segments
+def get_seg_num(my_cnas, my_ssms):
+	seg_num = 1
+
+	for current_cna in my_cnas:
+		seg_index = current_cna.seg_index
+		if seg_index >= seg_num:
+			seg_num = seg_index + 1
+	for current_ssm in my_ssms:
+		seg_index = current_ssm.seg_index
+		if seg_index >= seg_num:
+			seg_num = seg_index + 1
+
+	return seg_num
+
+# updates ancestral relationships according to impact matrix
+def update_ADRs_according_impact_matrix(z_matrix=None, triplet_xys=None, triplet_ysx=None, triplet_xsy=None, 
+		impact_matrix=None, my_ssms=None, my_cnas=None):
+
+	# create temporary zmco object
+	tmp_zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms=None, matrix_after_first_round=None)
+
+	# check all influences
+	impacts = np.where(impact_matrix == 1)
+	for i in range(len(impacts[0])):
+		ssm_lineage = my_ssms[impacts[0][i]].lineage
+		cna_lineage = my_cnas[impacts[1][i]].lineage
+
+		# SSM lineage needs to have lower index than CNA lineage
+		if ssm_lineage > cna_lineage:
+			raise eo.MyException("Invalid impact matrix. SSM's subclone needs to have lower index than CNA's subclone. "
+				"Not the case for SSM {0}, assigned to subclone {1}, and CNA {2}, assigned to subclone {3}.".format(
+				impacts[0][i], ssm_lineage, impacts[1][i], cna_lineage))
+		# lineage of SSM and CNA are equal
+		if ssm_lineage == cna_lineage:
+			continue
+
+		# update relationship
+		update_ancestry(1, ssm_lineage, cna_lineage, zmco=tmp_zmco)
+
+# propagate SSM phasing, different to CNA influence or lost allele
+def propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, z_matrix, impact_matrix, my_lins):
+
+	if impact_matrix is None:
+		return True
+
+	# propagate SSM phasing with Equation 14 (different phase because of impact matrix)
+	for current_ssm in my_ssms:
+		for current_cna in my_cnas:
+			ssm_index = current_ssm.index
+			cna_index = current_cna.index
+			if (impact_matrix[ssm_index][cna_index] == 0 and z_matrix[current_ssm.lineage][current_cna.lineage] == 1
+				and current_ssm.seg_index == current_cna.seg_index):
+				if current_ssm.phase is None:
+					current_ssm.phase = other_phase(current_cna.phase)
+				elif current_ssm.phase == current_cna.phase:
+					raise eo.MyException("SSM phases cannot be propagated. SSM {0} needs to have both "
+						"phases at the same time.".format(ssm_index))
+
+	# propagate SSM phasing with Equation 7 (lost allele)
+	for current_ssm in my_ssms:
+		k = current_ssm.lineage
+		ancestors = [k_star for k_star in range(1, k) if z_matrix[k_star][k] == 1]
+		for phase in [cons.A, cons.B]:
+			# get change of ancestors  of phase of segment where SSM lies on
+			change = 0
+			for k_star in ancestors:
+				if phase == cons.A:
+					try:
+						change += sum([x.change for x in my_lins[k_star].cnvs_a if x.seg_index == current_ssm.seg_index])
+					except TypeError:
+						import pdb; pdb.set_trace()
+						hallo = 5
+				if phase == cons.B:
+					change += sum([x.change for x in my_lins[k_star].cnvs_b if x.seg_index == current_ssm.seg_index])
+			if phase == cons.A:
+				change += sum([x.change for x in my_lins[k].cnvs_a if x.seg_index == current_ssm.seg_index])
+			if phase == cons.B:
+				change += sum([x.change for x in my_lins[k].cnvs_b if x.seg_index == current_ssm.seg_index])
+
+			if change < 0:
+				if current_ssm.phase == None:
+					current_ssm.phase = other_phase(phase)
+				elif current_ssm.phase == phase:
+					raise eo.MyException("SSM phases cannot be propagated. SSM {0} needs to have both "
+						"phases at the same time.".format(ssm_index))
+
+# given the lineages, takes the SSMs and their phasing and sorts them according to their index
+def get_new_ssm_phasing(my_lins):
+	ssm_list = []
+	for current_lineage in my_lins:
+		all_ssms = current_lineage.ssms + current_lineage.ssms_a + current_lineage.ssms_b
+		for current_ssm in all_ssms:
+			ssm_list.append([current_ssm.index, current_ssm.phase])
+
+	ssm_list = sorted(ssm_list, key = lambda x: x[0])
+	return ssm_list
+
+# checks whether the monotoncity restriction holds for each segment and allele
+def check_monotonicity(my_cnas):
+	my_cnas = sorted(my_cnas, key = lambda x: (x.seg_index, x.phase))
+
+	for i in range(len(my_cnas)-1):
+		# CNA of same segment and allele
+		if my_cnas[i].seg_index == my_cnas[i+1].seg_index and my_cnas[i].phase == my_cnas[i+1].phase:
+			# one CNA is gain and one is loss
+			if (my_cnas[i].change > 0 and my_cnas[i+1].change < 0) or (my_cnas[i].change < 0 and my_cnas[i+1].change > 0):
+				if my_cnas[i].phase == cons.A:
+					phase = "A"
+				else:
+					phase = "B"
+				raise eo.MyException("Segment {0} and phase {1} don't held monotonicity constraint.".format(
+					my_cnas[i].seg_index, phase))
+
+	return True
+
+					
+def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_file=None, userZ_file=None, userSSM_file=None,
+		output_prefix=None, overwrite=False, use_logging=True):
+
+	# check whether output files exist already
+	# create logging file
+	# create lineage object list
+	# get user constraints
+	my_lins, sorting_id_mapping, lin_num, user_z = check_overwrite_logging_lineages_Z_constraints(overwrite=overwrite, 
+		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file)
+
+	# read CNA file and assign CNAs
+	my_cnas = oio.read_cnas(cna_file, sorting_id_mapping=sorting_id_mapping, use_cna_indices=True, lin_num=lin_num)
+	check_monotonicity(my_cnas)
+	cna_num = add_CNAs(my_lins=my_lins, lin_num=lin_num, my_cnas=my_cnas)
+
+	# read SSM file
+	my_ssms = oio.read_ssms(ssm_file, phasing=False, sorting_id_mapping=sorting_id_mapping, use_SSM_index=True, lin_num=lin_num)
+	ssm_num = len(my_ssms)
+
+	# read impact file
+	impact_matrix = oio.create_impact_matrix(impact_file=impact_file, cna_num=cna_num, ssm_num=ssm_num)
+
+	# start SupMARine
+	logging.info("Starting SubMARine.")
+
+	# create Z-matrix, apply germline constraints and trivial relationships
+	# set user constraints if exist
+	# create variabls needed for tree rules
+	z_matrix, triplet_xys, triplet_ysx, triplet_xsy = create_z_germline_trivial_user_vars_tree_rule(my_lins=my_lins, user_z=user_z,
+		lin_num=lin_num)
+
+	# get segment number
+	seg_num = get_seg_num(my_cnas, my_ssms)
+
+	# change SSM phasing according to impact matrix
+	change_ssm_phasing_according_to_impact(impact_matrix=impact_matrix, my_ssms=my_ssms, my_cnas=my_cnas)	
+	# apply user SSM constraints
+	if userSSM_file is not None:
+		oio.get_SSM_constraints(userSSM_file=userSSM_file, my_ssms=my_ssms)
+	# update ancestral relationships according to impact matrix
+	update_ADRs_according_impact_matrix(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, 
+		impact_matrix=impact_matrix, my_ssms=my_ssms, my_cnas=my_cnas)
+	# propagate SSM phasing
+	propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, z_matrix, impact_matrix, my_lins)
+
+	# assign SSMs to lineages
+	ssm_num = add_SSMs(my_lins=my_lins, lin_num=lin_num, my_ssms=my_ssms)
+
+	# crossing rule
+	logging.debug("crossing rule")
+	zero_count = lin_num * lin_num
+	zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+
+	# go once through segment and get gains, losses and SSMs
+	gain_num = []
+	loss_num = []
+	CNVs = []
+	present_ssms = []
+	ssm_infl_cnv_same_lineage = []
+	# iterate through all segments once to get all CN changes and SSMs appearances
+	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lins,
+		ssm_infl_cnv_same_lineage)
+	# copy present_ssm list for later
+	origin_present_ssms = copy.deepcopy(present_ssms)
+	# check for pairwise and easy triplet-wise constraints that lead to absent relationships
+	logging.debug("propagate pairwise and easy-triplet wise constraints")
+	z_matrix_list, z_matrix_fst_rnd, triplets_list = (
+	        post_analysis_Z_matrix(my_lins, seg_num, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
+	        matrix_splitting=False, first_absence_propagation=True, CNVs=CNVs, present_ssms=present_ssms, gain_num=gain_num,
+		loss_num=loss_num))
+	# check whether sum rule leads to unambiguous relationships
+	logging.debug("using sum rule")
+	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], triplets_list)
+	if len(zmcos) > 1:
+		raise eo.MyException("zmcos should only have one entry!")
+	zmco = zmcos[0]
+	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
+	try:
+		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
+			gain_num, loss_num, CNVs, present_ssms)
+	except eo.MyException as e:
+		raise e
+
+	# adapt lineages because SSMs can be phased differently after sum rule, also, relationships can differ
+	logging.debug("adapt lineages after sum rule")
+	my_lins = create_updates_lineages(my_lins, 0, [zmco.z_matrix], origin_present_ssms, [zmco.present_ssms])
+
+	# convert values in Z-matrix to values used in paper
+	z_matrix_for_output = convert_zmatrix_0_m1(zmco.z_matrix)
+
+	# if no output prefix is given, results are not written to files but returned
+	if output_prefix is not None:
+		# print to file
+		logging.debug("Printing results to file.")
+		oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
+		np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
+		oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+		ssm_phasing = get_new_ssm_phasing(my_lins)
+		oio.write_new_ssm_phasing(ssm_phasing, "{0}.ssm_phasing".format(output_prefix), overwrite)
+
+	logging.info("SubMARine is done.")
+
+	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing
+
+def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True):
+
+	# check whether output files exist already
+	# create logging file
+	# create lineage object list
+	# get user constraints
+	my_lins, sorting_id_mapping, lin_num, user_z = check_overwrite_logging_lineages_Z_constraints(overwrite=overwrite, 
+		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file)
+
+	# start SupMARine
+	logging.info("Starting SubMARine.")
+
+	# create Z-matrix, apply germline constraints and trivial relationships
+	# set user constraints if exist
+	# create variabls needed for tree rules
+	z_matrix, triplet_xys, triplet_ysx, triplet_xsy = create_z_germline_trivial_user_vars_tree_rule(my_lins=my_lins, user_z=user_z,
+		lin_num=lin_num)
 	
 	# crossing rule
 	logging.debug("crossing rule")
+	zero_count = lin_num * lin_num
 	zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
 
 	# check whether sum rule leads to unambiguous relationships
@@ -873,7 +1141,6 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 
 	# convert values in Z-matrix to values used in paper
 	z_matrix_for_output = convert_zmatrix_0_m1(zmco.z_matrix)
-
 
 	# if no output prefix is given, results are not written to files but returned
 	if output_prefix is not None:
@@ -1037,6 +1304,65 @@ def create_ID_ordering_mapping(sorted_indices, lin_ids):
 	logging.info(", ".join(output_message))
 	return mapping
 
+# adds the CNAs to the lineages
+def add_CNAs(cna_file=None, my_lins=None, lin_num=None, sorting_id_mapping=None, use_cna_indices=False, my_cnas=None):
+	
+	cna_num = -1
+
+	# read CNAs
+	if cna_file is not None:
+		my_cnas = oio.read_cnas(cna_file, sorting_id_mapping=sorting_id_mapping, use_cna_indices=use_cna_indices)
+
+	# assign CNAs
+	if my_cnas is not None:
+		cna_num = len(my_cnas)
+		for cna in my_cnas:
+			if cna.phase == cons.A:
+				my_lins[cna.lineage].cnvs_a.append(cna)
+			else:
+				my_lins[cna.lineage].cnvs_b.append(cna)
+		# sort CNAs
+		for k in range(1, lin_num):
+			my_lins[k].cnvs_a = sort_segments(my_lins[k].cnvs_a, segment=True)
+			check_only_one_CNA_per_segment_lineage_phase(my_lins[k].cnvs_a)
+			my_lins[k].cnvs_b = sort_segments(my_lins[k].cnvs_b, segment=True)
+			check_only_one_CNA_per_segment_lineage_phase(my_lins[k].cnvs_b)
+
+	return cna_num
+
+# checks that each allel of one lineage can only have one CNA of the same segment
+def check_only_one_CNA_per_segment_lineage_phase(cna_list_per_lin_phase):
+	for i in range(len(cna_list_per_lin_phase)-1):
+		if cna_list_per_lin_phase[i].seg_index == cna_list_per_lin_phase[i+1].seg_index:
+			raise eo.MyException("CNAs {0} and {1} are in the same segment and thus cannot be assigned to the same "
+				"allele and lineage. Please combine them to one CNA.".format(cna_list_per_lin_phase[i].index,
+				cna_list_per_lin_phase[i+1].index))
+
+def add_SSMs(ssm_file=None, my_lins=None, lin_num=None, phasing=None, sorting_id_mapping=None, use_SSM_index=False, my_ssms=None):
+
+	ssm_num = -1
+
+	# read SSMs
+	if ssm_file is not None:
+		my_ssms = oio.read_ssms(ssm_file, phasing=phasing, sorting_id_mapping=sorting_id_mapping, use_SSM_index=use_SSM_index)
+
+	# assign SSMs
+	if my_ssms is not None:
+		ssm_num = len(my_ssms)
+		for ssm in my_ssms:
+			if ssm.phase == cons.A:
+				my_lins[ssm.lineage].ssms_a.append(ssm)
+			elif ssm.phase == cons.B:
+				my_lins[ssm.lineage].ssms_b.append(ssm)
+			else:
+				my_lins[ssm.lineage].ssms.append(ssm)
+		# sort SSMs per lineage
+		for k in range(1, lin_num):
+			my_lins[k].ssms_a = sorted(my_lins[k].ssms_a, key = lambda x: x.seg_index)
+			my_lins[k].ssms_b = sorted(my_lins[k].ssms_b, key = lambda x: x.seg_index)
+
+	return ssm_num
+
 # given information about parents, frequencies, cnas and ssms in a file, create a lineage object
 def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=None, ssm_file=None):
 
@@ -1057,33 +1383,11 @@ def get_lineages_from_input_files(parents_file=None, freq_file=None, cna_file=No
 	if parents_file is not None:
 		build_sublin_lists_from_parental_info(my_lins, parent_vector)
 
-	# get and assign CNAs
-	if cna_file is not None:
-		my_cnas = oio.read_cnas(cna_file)
-		for cna in my_cnas:
-			if cna.phase == cons.A:
-				my_lins[cna.lineage].cnvs_a.append(cna)
-			else:
-				my_lins[cna.lineage].cnvs_b.append(cna)
-		# sort CNAs
-		for k in range(1, lin_num):
-			my_lins[k].cnvs_a = sort_segments(my_lins[k].cnvs_a)
-			my_lins[k].cnvs_b = sort_segments(my_lins[k].cnvs_b)
+	# add and assign CNAs
+	add_CNAs(cna_file=cna_file, my_lins=my_lins, lin_num=lin_num)
 
 	# get and assign SSMs
-	if ssm_file is not None:
-		my_ssms = oio.read_ssms(ssm_file)
-		for ssm in my_ssms:
-			if ssm.phase == cons.A:
-				my_lins[ssm.lineage].ssms_a.append(ssm)
-			elif ssm.phase == cons.B:
-				my_lins[ssm.lineage].ssms_b.append(ssm)
-			else:
-				my_lins[ssm.lineage].ssms.append(ssm)
-		# sort SSMs per lineage
-		for k in range(1, lin_num):
-			my_lins[k].ssms_a = sorted(my_lins[k].ssms_a, key = lambda x: (x.chr, x.pos))
-			my_lins[k].ssms_b = sorted(my_lins[k].ssms_b, key = lambda x: (x.chr, x.pos))
+	add_SSMs(ssm_file=ssm_file, my_lins=my_lins, lin_num=lin_num, phasing=True)
 
 	return my_lins
 
@@ -1265,7 +1569,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 				loss_num, CNVs, present_ssms)
 
 	# if ancestor-descendant relationship gets transformed to present one
-	if value == 1:
+	if value == 1 and zmco.present_ssms is not None:
 		# move unphased SSMs if necessary
 		try:
 			phasing_allows_relation(kstar, k, zmco.matrix_after_first_round, zmco.present_ssms, CNVs, value)
@@ -3325,8 +3629,12 @@ def get_number_of_untrivial_z_entries(sublin_num):
 		return (((sublin_num - 1) * (sublin_num - 2)) / 2)
 	return 0
 
-def sort_segments(segment_list):
-	return sorted(segment_list, key = lambda x: (x.chr, x.start))
+def sort_segments(segment_list, segment=False):
+	if segment == False:
+		return sorted(segment_list, key = lambda x: (x.chr, x.start))
+	else:
+		return sorted(segment_list, key = lambda x: x.seg_index)
+
 
 def sort_cnvs(cnv_list):
 	return sorted(cnv_list, key = lambda x:(x.chr, x.start, x.end, x.change))
@@ -3363,13 +3671,15 @@ if __name__ == '__main__':
     parser.add_argument("--userZ_file", default=None, type=str, help ="File with user constraints on lineage relationships")
     parser.add_argument("--userSSM_file", default=None, type=str, help ="File with user constraints on SSM phases")
     parser.add_argument("--lineage_file", default=None, type=str, help ="File with lineage information from SubMARine")
+    parser.add_argument("--impact_file", default=None, type=str, help ="File containing impact information of CNAs on SSMs")
     parser.add_argument("--z_matrix_file", default=None, type=str, help ="File with Z matrix from SubMARine")
     parser.add_argument("--output_prefix", default=None, type=str, help ="prefix of output files")
     parser.add_argument("--overwrite", action='store_true', help="old output files will be overwritten")
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
     parser.add_argument("--write_trees_to_file", action='store_true', help="writes trees to file")
     parser.add_argument("--tree_threshold", default=25000, type=int, help ="maximal number of trees that is written to file")
-    parser.add_argument("--basic_version", action='store_true', help="starts frequency mode")
+    parser.add_argument("--basic_version", action='store_true', help="starts basic version")
+    parser.add_argument("--extended_version", action='store_true', help="starts extended version")
     args = parser.parse_args()
 
     if args.dfs:
@@ -3380,6 +3690,10 @@ if __name__ == '__main__':
         depth_first_search(args.lineage_file, args.seg_file, args.z_matrix_file, args.output_prefix, only_number, args.tree_threshold, args.overwrite)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
+    elif args.extended_version:
+        go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
+		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
+		output_prefix=args.output_prefix, overwrite=args.overwrite)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 
