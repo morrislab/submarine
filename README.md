@@ -81,13 +81,20 @@ For each CNA, the following information is given: the subclone it is assigned to
 
 ## Running SubMARine
 
-To run SubMARine on the provided test files in basic version type:
+To run SubMARine on the provided test files in basic version, type:
 ```
 python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
   --userZ_file submarine_example/userZ.csv --output_prefix my_test_basic 
 ```
 
-To run SubMARine on the provided test files in extended version type:
+To run SubMARine on the provided test files in basix version with SSMs and clonal CNAs, type:
+```
+python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
+  --userZ_file submarine_example/userZ.csv --cna_file submarine_example/cnas4.csv 
+  --ssm_file submarine_example/ssms4.csv --output_prefix submarine_example/my_test_basic_clonalCNAs
+```
+
+To run SubMARine on the provided test files in extended version, type:
 ```
 python3 submarine.py --extended_version --freq_file submarine_example/frequencies3.csv 
   --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv 
@@ -97,10 +104,10 @@ python3 submarine.py --extended_version --freq_file submarine_example/frequencie
 
 To start the depth-first search type:
 ```
-python3 submarine.py --dfs --possible_parent_file submarine_example/test_extended_version.pospars 
-  --z_matrix_file submarine_example/test_extended_version.zmatrix 
-  --lineage_file submarine_example/test_extended_version.lineage.json 
+python3 submarine.py --dfs --possible_parent_file submarine_example/my_test_extended.pospars 
+  --z_matrix_file submarine_example/my_test_extended.zmatrix 
+  --lineage_file submarine_example/my_test_extended.lineage.json 
   --cna_file submarine_example/cnas3.csv --ssm_file submarine_example/ssms3.csv 
-  --output_prefix submarine_example/test_extended_version 
+  --output_prefix submarine_example/my_test_extended 
 ```
 When no CNAs and SSMs are given, simply do not use the `--cna_file` and the `--ssm_file` options.
