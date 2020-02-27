@@ -848,12 +848,13 @@ class ModelTest(unittest.TestCase):
 		# same frequencies
 		freqs = [[1.0, 0.1], [0.8, 0.7], [1.0, 0.1]]
 		freq_num = 2
-		lin_num = 4
+		lin_num = 3
 		lin_ids = [1, 2, 3]
 
-		with self.assertRaises(eo.MyException):
-			lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, 
-				freq_num=freq_num, lin_num=lin_num, lin_ids=lin_ids)
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, 
+			freq_num=freq_num, lin_num=lin_num, lin_ids=lin_ids)
+
+		self.assertEqual(3, len(lins))
 
 
 	def test_convert_zmatrix_for_internal_use(self):

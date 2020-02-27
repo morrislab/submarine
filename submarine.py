@@ -1317,35 +1317,36 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 	# indices of argsort
 	sorted_indices = np.flip(np.argsort(av_freqs), 0)
 	# check whether multiple lineages with same average frequencies exist
-	i = 0
-	while i < lin_num - 2:
-		same_freq = []
-		next_lin = i+1
-		check_next_lin = True
-		# get all lineages that have the same average frequency
-		while(check_next_lin):
-			if freqs[sorted_indices[i]] == freqs[sorted_indices[next_lin]]:
-				same_freq = same_freq + [sorted_indices[next_lin]]
-				next_lin += 1
-				if next_lin >= lin_num-1:
-					check_next_lin = False
-			else:
-				check_next_lin = False
+	## UPDATE: even if lineages have exact same frequencies in all samples, don't try to merge them anymore
+	#i = 0
+	#while i < lin_num - 2:
+	#	same_freq = []
+	#	next_lin = i+1
+	#	check_next_lin = True
+	#	# get all lineages that have the same average frequency
+	#	while(check_next_lin):
+	#		if freqs[sorted_indices[i]] == freqs[sorted_indices[next_lin]]:
+	#			same_freq = same_freq + [sorted_indices[next_lin]]
+	#			next_lin += 1
+	#			if next_lin >= lin_num-1:
+	#				check_next_lin = False
+	#		else:
+	#			check_next_lin = False
 
-		# other lineages have the same frequency
-		if len(same_freq) > 0:
-			# append index of current lineage
-			same_freq = [sorted_indices[i]] + same_freq
-			# if lineages have different frequencies per sample, nothing needs to be done
-			for j in range(len(same_freq)-1):
-				#TODO also check for other attributes to differentiate them
-				if freqs[same_freq[j]] == freqs[same_freq[j+1]]:
-					error_message = ("Subclones {0} and {1} have exactly same frequencies, cannot be differentiated."
-						.format(same_freq[j], same_freq[j+1]))
-					logging.error(error_message)
-					raise eo.MyException(error_message)
-		# update i
-		i = next_lin
+	#	# other lineages have the same frequency
+	#	if len(same_freq) > 0:
+	#		# append index of current lineage
+	#		same_freq = [sorted_indices[i]] + same_freq
+	#		# if lineages have different frequencies per sample, nothing needs to be done
+	#		for j in range(len(same_freq)-1):
+	#			#TODO also check for other attributes to differentiate them
+	#			if freqs[same_freq[j]] == freqs[same_freq[j+1]]:
+	#				error_message = ("Subclones {0} and {1} have exactly same frequencies, cannot be differentiated."
+	#					.format(same_freq[j], same_freq[j+1]))
+	#				logging.error(error_message)
+	#				raise eo.MyException(error_message)
+	#	# update i
+	#	i = next_lin
 
 	# create mapping between ordering and IDs
 	mapping = create_ID_ordering_mapping(sorted_indices, lin_ids)
