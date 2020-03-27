@@ -9,8 +9,23 @@ import exceptions_onctopus as eo
 import os
 import pdb
 import sys
+import numpy as np
 
 class OnctopusIOTest(unittest.TestCase):
+
+	def test_possible_parents_to_string(self):
+
+		ppm = np.zeros(25).reshape(5,5)
+		ppm[1][0] = 1
+		ppm[2][0] = 1
+		ppm[2][1] = 1
+		ppm[3][2] = 1
+		ppm[4][1] = 1
+		ppm[4][3] = 1
+
+		output = oio.possible_parents_to_string(ppm, None, test=True)
+
+		self.assertEqual(output, "1:0;2:0,1;3:2;4:1,3")
 
 	def test_write_new_ssm_phasing(self):
 

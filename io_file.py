@@ -1865,3 +1865,22 @@ def print_mdl(mdl):
 
 def visualize_result_file(result_file, output_file=None, test=False):
 	pass
+
+def possible_parents_to_string(ppm, output_file, test=False):
+	if test is False:
+		raise_if_file_exists(output_file)
+
+	output = []
+
+	for i in range(1,len(ppm)):
+		possible_partents = np.where(ppm[i] == 1)[0]
+		possible_partents = ["{0}".format(x) for x in possible_partents]
+		output.append("{0}:{1}".format(i, ",".join(possible_partents)))
+
+	output = "{0}".format(";".join(output))
+
+	if test == True:
+		return output
+
+	with open(output_file, "w") as f:
+		f.write(output)
