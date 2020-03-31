@@ -1084,6 +1084,10 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms)
+	except eo.NoParentsLeft as e:
+		logging.warning(str(e))
+		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
+		return
 	except eo.MyException as e:
 		raise e
 
@@ -1198,8 +1202,13 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms)
+	except eo.NoParentsLeft as e:
+		logging.warning(str(e))
+		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
+		return
 	except eo.MyException as e:
 		raise e
+	
 
 	# adapt lineages because relationships can differ
 	logging.debug("adapt subclones after sum rule")
