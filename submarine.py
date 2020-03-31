@@ -106,7 +106,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
-				eo.AvailableFreqLowerZero, eo.RelationshipAlreadySet) as e:
+				eo.RelationshipAlreadySet) as e:
 				# update not possible
 				# thus, count one tree that was enumerated
 				total_count += 1
@@ -241,7 +241,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
-		eo.AvailableFreqLowerZero, eo.RelationshipAlreadySet) as e:
+		eo.RelationshipAlreadySet) as e:
 		# update not possible
 		# thus, count one tree that was enumerated
 		total_count += 1
@@ -644,8 +644,7 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_dup, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
-					eo.AvailableFreqLowerZero) as e:
+				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft) as e:
 					pass
 				# set entry of current Z-matrix and co object to -1 (relationship absent)
 				try:
@@ -656,8 +655,7 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_current, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
-					eo.AvailableFreqLowerZero) as e:
+				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft) as e:
 					pass
 				# going back one level
 				return count
@@ -961,11 +959,7 @@ def propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, 
 			change = 0
 			for k_star in ancestors:
 				if phase == cons.A:
-					try:
-						change += sum([x.change for x in my_lins[k_star].cnvs_a if x.seg_index == current_ssm.seg_index])
-					except TypeError:
-						import pdb; pdb.set_trace()
-						hallo = 5
+					change += sum([x.change for x in my_lins[k_star].cnvs_a if x.seg_index == current_ssm.seg_index])
 				if phase == cons.B:
 					change += sum([x.change for x in my_lins[k_star].cnvs_b if x.seg_index == current_ssm.seg_index])
 			if phase == cons.A:
@@ -1535,11 +1529,15 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 	ppm = get_possible_parents(zmco.z_matrix)
 	# create array of definite parents
 	defparent = [-1] * lin_num
+	# create inital possible parent list, not based on frequencies and sum rule but on the other rules
+	initial_pps_for_all = [-1] * lin_num
 	
 	# go over all lineages
 	for k in range(1, lin_num):
 
 		possible_parents = np.where(ppm[k] == 1)[0]
+		initial_pps = possible_parents.copy()
+		initial_pps_for_all[k] = initial_pps
 		# iterate over all possible parents
 		for k_star in possible_parents:
 			# if k_star cannot be a possible parent
@@ -1550,13 +1548,13 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 				# if no possible descendant of k_star is possible parent of k
 				if sum([ppm[k][k_circ] for k_circ in posdes]) == 0:
 					update_ancestry(-1, k_star, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-						loss_num, CNVs, present_ssms)
+						loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 
 		possible_parents = np.where(ppm[k] == 1)[0]
 		# if k has only one possible parent k_star
 		if len(possible_parents) == 1 and defparent[k] == -1:
 			make_def_child(possible_parents[0], k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-				loss_num, CNVs, present_ssms)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 		elif len(possible_parents) < 1 and defparent[k] == -1:
 			raise eo.NoParentsLeft("There are no possible parents for lineage {0}.".format(k))
 
@@ -1572,15 +1570,59 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 	
 	return True, avFreqs, ppm
 
-def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
+# given a list of initial possible parents, checks for lineage k whether these can still be possible parents except that available frequency is 
+# too small
+def still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
+
+	still_pps = []
+
+	# iterate through all initial possible parents
+	for pp in initial_pps_for_all[k]:
+		if zmco.z_matrix[pp][k] != 1:
+			# copy zmco and present_ssms as these are not allowed to be changed
+			copied_zmco = copy.deepcopy(zmco)
+			copied_present_ssms= copy.deepcopy(present_ssms)
+			# set relationship to ambiguous
+			copied_zmco.z_matrix[pp][k] = 0
+			# add new triplets because we have ambiguous entry again
+			lin_num = len(copied_zmco.z_matrix)
+			if lin_num > 3:
+				for kcirc in range(lin_num):
+					if kcirc < pp:
+						update_triplet_hash(copied_zmco.triplet_xys, kcirc, pp, k)
+						update_triplet_hash(copied_zmco.triplet_ysx, pp, k, kcirc)
+						update_triplet_hash(copied_zmco.triplet_xsy, kcirc, k, pp)
+					elif pp < kcirc < k:
+						update_triplet_hash(copied_zmco.triplet_xys, pp, kcirc, k)
+						update_triplet_hash(copied_zmco.triplet_ysx, kcirc, k, pp)
+						update_triplet_hash(copied_zmco.triplet_xsy, pp, k, kcirc)
+					elif k > kcirc:
+						update_triplet_hash(copied_zmco.triplet_xys, pp, k, kcirc)
+						update_triplet_hash(copied_zmco.triplet_ysx, k, kcirc, pp)
+						update_triplet_hash(copied_zmco.triplet_xsy, pp, kcirc, k)
+			# if updating relationship to present worked, lineage pp is still a potential parent except that it hasn't enough frequency
+			try:
+				update_ancestry(1, pp, k, zmco=copied_zmco, seg_num=seg_num, zero_count=zero_count, gain_num=gain_num, loss_num=loss_num,
+					CNVs=CNVs, present_ssms=copied_present_ssms)
+				still_pps.append(pp)
+			except eo.MyException:
+				pass
+		else:
+			still_pps.append(pp)
+
+	initial_pps_for_all[k] = still_pps
+
+def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=None):
 	
 	# available frequency gets adapted for all samples n
-	avFreqs[kstar] = np.subtract(avFreqs[kstar], linFreqs[k])
+	avFreqs_tmp = np.subtract(avFreqs[kstar], linFreqs[k])
 	
 	# available frequency is not allowed to be smaller than 0
-	if np.where(avFreqs[kstar] + cons.EPSILON_FREQUENCY < 0, True, False).any():
-		raise eo.AvailableFreqLowerZero("Lineage {0} should become parent of lineage {1}, however there is not available frequency left.".format(
-	    		kstar, k))
+	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY < 0, True, False).any():
+		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
+
+	avFreqs[kstar] = avFreqs_tmp
 	
 	defparent[k] = kstar
 	
@@ -1597,26 +1639,44 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 			# if no possible descendant of k* is possible parent of k'
 			if sum([ppm[kprime][k_circ] for k_circ in posdes]) == 0:
 				update_ancestry(-1, kstar, kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, 
-			    	CNVs, present_ssms)
+			    	CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 			
 			possible_parents = np.where(ppm[kprime] == 1)[0]
 			# if k' has only one possible parent k_circ, which is not yet definite parent
 			if len(possible_parents) == 1 and defparent[kprime] == -1:
 		    		make_def_child(possible_parents[0], kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-					loss_num, CNVs, present_ssms)
+					loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 		
 		possible_children = get_possible_children_smaller_last_greater_kprime(ppm, kstar, kprime, last, defparent)
 	
-	update_ancestry(1, kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+	update_ancestry(1, kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+		initial_pps_for_all=initial_pps_for_all)
 	
 	return True
 
+def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all):
+	freq_string = "frequencies"
+	if len(linFreqs[0]) == 1:
+		freq_string = "frequency"
+
+	output = "There are no possible parents for subclone {0} with {1} of {2}, because".format(k, freq_string,
+		",".join(["{0:.3f}".format(cfreq) for cfreq in linFreqs[k]]))
+	if len(initial_pps_for_all[k]) > 0:
+		for i in range(len(initial_pps_for_all[k])-1):
+			output = output + " subclone {0} has only available {1} of {2},".format(initial_pps_for_all[k][i], freq_string,
+				",".join(["{0:.3f}".format(cfreq) for cfreq in avFreqs[initial_pps_for_all[k][i]]]))
+		output = output + " subclone {0} has only available {1} of {2}.".format(initial_pps_for_all[k][-1], freq_string,
+			",".join(["{0:.3f}".format(cfreq) for cfreq in avFreqs[initial_pps_for_all[k][-1]]]))
+	else:
+		output = output + "no other subclone can be parent because of equivalence and lost allele constraints."
+	raise eo.NoParentsLeft(output)
+
 def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFreqs=None, avFreqs=None, zmco=None, seg_num=None, 
-	zero_count=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None):
+	zero_count=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, initial_pps_for_all=None):
 
 	# if relationship to normal lineage should be removed, there is no possible parent left
 	if kstar == 0 and value == -1:
-		raise eo.NoParentsLeft("There are no possible parents for lineage {0}.".format(k))
+		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
 		
 	if zmco.z_matrix[kstar][k] == value:
 		return True
@@ -1639,7 +1699,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 		# if k has only one possible parent k^\circ
 		if len(possible_parents) == 1:
 			make_def_child(possible_parents[0], k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num,
-				loss_num, CNVs, present_ssms)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 
 	# if ancestor-descendant relationship gets transformed to present one
 	if value == 1 and zmco.present_ssms is not None:
@@ -1655,7 +1715,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 			post_analysis_Z_matrix(None, seg_num, zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
 				get_CNVs=False, matrix_splitting=False, check_crossing_rule=False, return_mutation_information=False,
 				gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, absence_propagation=True, path_lineages=None,
-				last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, defparent=defparent)
+				last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 
 	# if ancestor-descendant relationship gets transformed to absent one
 	if value == -1 and last is not None:
@@ -1664,14 +1724,15 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 			possible_descendants = get_possible_descendants(zmco.z_matrix, kcirc, k)
 			# if possible ancestor k^\circ of k* has no possible descendant that is possible parent of k and is not possible parent itself
 			if sum([ppm[k][kbullet] for kbullet in possible_descendants]) == 0 and ppm[k][kcirc] == 0:
-				update_ancestry(-1, kcirc, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+				update_ancestry(-1, kcirc, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+					initial_pps_for_all=initial_pps_for_all)
 
         # transitivity update with parent checking
 	dummy_zero_count = len(zmco.z_matrix) * len(zmco.z_matrix)
 	try:
 		update_Z_matrix_iteratively(zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
 			(kstar, k), zmco.present_ssms, CNVs, zmco.matrix_after_first_round,
-			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent)
+			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all)
 	except eo.MyException as e:
 		raise e
 
@@ -1827,7 +1888,7 @@ def check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lineage
 def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_s, x, y, s,
 	triplet_xys, triplet_ysx, triplet_xsy, present_ssms=None, CNVs=None, matrix_after_first_round=None,
         last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	# update number of 0's
 	# each change decreases the number of 0's by one
 	zero_count -= 1
@@ -1893,7 +1954,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 		try:
 			zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
 				index_pair, present_ssms, CNVs, matrix_after_first_round, last, ppm, avFreqs, linFreqs, zmco, seg_num,
-				gain_num, loss_num, defparent)
+				gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all)
 		except eo.ZInconsistence as e:
 			raise e
 
@@ -1907,7 +1968,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 	# is called from sum rule algorithm
 	else:
 		update_ancestry(new_z_entry, index_pair[0], index_pair[1], last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
-			gain_num, loss_num, CNVs, present_ssms)
+			gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 
 	return zero_count
 	
@@ -1930,7 +1991,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 # can raise exception ADRelationNotPossible when SSM phasing prevents update of relationships
 def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, index_pair,
 	present_ssms=None, CNVs=None, matrix_after_first_round=None, last=None, ppm=None, avFreqs=None, 
-        linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None, defparent=None):
+        linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None, defparent=None, initial_pps_for_all=None):
 	first_index = index_pair[0]
 	second_index = index_pair[1]
 	# check whether lowest triplets are influenced by change
@@ -1972,7 +2033,8 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 					triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy,
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
-					matrix_after_first_round=matrix_after_first_round, defparent=defparent)
+					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
+					initial_pps_for_all=initial_pps_for_all)
 
 	# no triplet was found
 	except KeyError:
@@ -2019,7 +2081,8 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 					triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy,
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
-					matrix_after_first_round=matrix_after_first_round, defparent=defparent)
+					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
+					initial_pps_for_all=initial_pps_for_all)
 	# no triplet was found
 	except KeyError:
 		pass
@@ -2065,7 +2128,8 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 					triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy,
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
-					matrix_after_first_round=matrix_after_first_round, defparent=defparent)
+					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
+					initial_pps_for_all=initial_pps_for_all)
 	# no triplet was found
 	except KeyError:
 		pass
@@ -2254,7 +2318,8 @@ def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys,
 def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
 	get_CNVs=False, matrix_splitting=True, check_crossing_rule=True, return_mutation_information=False,
 	gain_num=[], loss_num=[], CNVs=[], present_ssms=[], absence_propagation=False, path_lineages=None, last=None,
-	ppm=None, avFreqs=None, linFreqs=None, zmco=None, defparent=None, first_absence_propagation=False):
+	ppm=None, avFreqs=None, linFreqs=None, zmco=None, defparent=None, first_absence_propagation=False, 
+	initial_pps_for_all=None):
 
 	# if function is called for propagation of relationship absence, these things were already done before
 	if absence_propagation == False and first_absence_propagation == False:
@@ -2294,38 +2359,38 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 		zero_count = check_1a_CN_LOSS(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_1c_CN_loss(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_1d_2c_CN_losses(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_2f_CN_gains(gain_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_2h_LOH(loss_num[seg_index], gain_num[seg_index], CNVs[seg_index], z_matrix, 
 			zero_count, present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num,
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_2i_phased_changes(CNVs[seg_index], z_matrix, zero_count, present_ssms[seg_index],
 			triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_1f_2d_2g_2j_losses_gains(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
@@ -2333,14 +2398,14 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			first_run=True, mutations=cons.LOSS, path_lineages=path_lineages, seg_num=seg_num,
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		zero_count = check_1f_2d_2g_2j_losses_gains(gain_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy,
 			first_run=True, mutations=cons.GAIN, path_lineages=path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		loss_A_num = 0
@@ -2359,7 +2424,7 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
 			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, mut_num_B=gain_B_num,
-			mutations_B=cons.GAIN)
+			mutations_B=cons.GAIN, initial_pps_for_all=initial_pps_for_all)
 		if zero_count == 0:
 			break
 		loss_B_num = 0
@@ -2380,7 +2445,7 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
 			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, mut_num_B=loss_B_num,
-			mutations_B=cons.LOSS)
+			mutations_B=cons.LOSS, initial_pps_for_all=initial_pps_for_all)
 
 	# iterate through all segments a second time and check the hard cases now
 	# that are not easy to resolve and might result in multiple Z-matrices
@@ -2829,7 +2894,7 @@ def update_sublineages_after_Z_matrix_update(current_lineages, current_z_matrix)
 
 # iterates through all segments, to get the number of CN gains and losses, the CNVs itself and in which
 #	phases SSMs appear, all info per segment
-# present_ssms: 3D list: [segment][lineage][A, B, unphased]
+# present_ssms: 3D list with booleans: [segment][A,B,unphased][lineage]
 # ssm_infl_cnv_same_lineage 3D list: [segment][lineage][A, B]
 # evaluation_param: if function is called from evaluation function
 def get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
@@ -2896,7 +2961,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 	triplet_xys, triplet_ysx, triplet_xsy, first_run=True, mutations=cons.LOSS,
 	z_matrix_fst_rnd=None, z_matrix_list=None, triplets_list=None, present_ssms_list=None, seg_index=None,
 	CNVs_all=None, path_lineages=None, seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, 
-	loss_num=None, CNVs=None, present_ssms=None, defparent=None, mut_num_B=0, mutations_B=None):
+	loss_num=None, CNVs=None, present_ssms=None, defparent=None, mut_num_B=0, mutations_B=None, initial_pps_for_all=None):
 	# at least 2 CN changes of the specific mutation type or 1 CN change of each
 	if spec_mut_num < 2 and (spec_mut_num < 1 or mut_num_B < 1):
 		return zero_count
@@ -2948,7 +3013,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										triplet_xys, triplet_ysx, triplet_xsy,
 										seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
 										zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-										defparent=defparent)
+										defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 									if old_z_status == cons.Z_ONE:
 										raise eo.MyException("This shouldn't happen. "
 											"Both alleles were deleted, there "
@@ -2972,7 +3037,7 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										triplet_xys, triplet_ysx, triplet_xsy,
 										seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
 										zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-										defparent=defparent)
+										defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 									# if middle lineage has unphased SSMs, it's not possible
 									# that is was in any relation with the other lineage
 									#if old_z_status_p + old_z_status_pp >= 1:
@@ -2995,13 +3060,13 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 								triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 								last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 								loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-								defparent=defparent)
+								defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 							zero_count, old_z_status_pp = update_z_matrix_first_round_m1(z_matrix,
 								zero_count, high_lin, k_prime_prime, 
 								triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 								last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 								loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-								defparent=defparent)
+								defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 							# if higher lineage has unphased SSMs it can't be in an
 							# ancestor-descendant relation to k' and/or k''
 							if old_z_status_p + old_z_status_pp >= 1:
@@ -3270,7 +3335,7 @@ def other_phase(phase):
 # case 2i) considers all changes that can happen somewhere, SSMs in upstream lineages are influenced
 def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	for changes in current_CNVs.keys():
 		for phases in current_CNVs[changes].keys():
 			for my_lin in current_CNVs[changes][phases]:
@@ -3284,7 +3349,8 @@ def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_
 							zero_count, higher_lin, my_lin,
 							triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 							ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
-							loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+							loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+							initial_pps_for_all=initial_pps_for_all)
 						if zero_count == 0:
 							return zero_count 
 	return zero_count 
@@ -3292,7 +3358,7 @@ def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_
 # case 2h) LOH in a lineage, influence on SSMs in upstream lineage
 def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, 
 	path_lineages=None, seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, 
-	present_ssms=None, defparent=None):
+	present_ssms=None, defparent=None, initial_pps_for_all=None):
 	# both current_loss_num and current_gain_num have to be at least one
 	if current_loss_num == 0 or current_gain_num == 0:
 		return zero_count
@@ -3322,7 +3388,7 @@ def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zer
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-						CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+						CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3330,7 +3396,7 @@ def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zer
 # case 2f) two gains on different alleles in the same lineage, influence SSMs in upstream lineages
 def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	# needs at least two CN gains
 	if current_gain_num < 2:
 		return zero_count
@@ -3356,7 +3422,8 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
-						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+						initial_pps_for_all=initial_pps_for_all)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3366,7 +3433,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 # case 2d) two losses in same lineage, influence on SSMs in upstream lineages
 def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	# needs at least two CN losses
 	if current_loss_num < 2:
 		return zero_count
@@ -3397,7 +3464,8 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 						zero_count, my_lin, lower_lin,
 						triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 						ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
-						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+						initial_pps_for_all=initial_pps_for_all)
 					# check for errors in results
 					if old_z_status == cons.Z_ONE:
 						raise eo.MyException("This shouldn't happen, "
@@ -3413,7 +3481,8 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
-						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+						initial_pps_for_all=initial_pps_for_all)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3421,7 +3490,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 # case 1c): downstream SSM can be on a deleted allele
 def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, 
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	# needs at least one CN loss
 	if current_loss_num == 0:
 		return zero_count
@@ -3430,7 +3499,7 @@ def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, curre
 	zero_count = check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, cons.A, current_present_ssms,
 		triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 		ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-		defparent=defparent)
+		defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 	# all 0 entries in the Z matrix were checked and changed
 	if zero_count == 0:
 		return zero_count
@@ -3438,14 +3507,14 @@ def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, curre
 	zero_count = check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, cons.B, current_present_ssms,
 		triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 		ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-		defparent=defparent)
+		defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 
 	return zero_count
 
 def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, phase, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, 
 	path_lineages=None, 
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None):
+	defparent=None, initial_pps_for_all=None):
 	# CN loss needs to affect a lineage
 	try:
 		affected_lineages = sorted(list(current_CNVs[cons.LOSS][phase].keys()))
@@ -3463,7 +3532,7 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 				zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, 
 					lin_index, lower_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 					ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, 
-					present_ssms=present_ssms, defparent=defparent)
+					present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 				# check for errors in results
 				if old_z_status == cons.Z_ONE:
 					raise eo.MyException("This shouldn't happen, deleted allele can't "
@@ -3475,7 +3544,8 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 
 # case 1a): one allele can only be deleted once
 def check_1a_CN_LOSS(current_loss_num, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, seg_num=None,
-	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None):
+	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
+	initial_pps_for_all=None):
 	# needs more than one CN loss
 	if current_loss_num <= 1:
 		return zero_count
@@ -3483,19 +3553,20 @@ def check_1a_CN_LOSS(current_loss_num, currentCNVs, z_matrix, zero_count, triple
 	# check for A allele
 	zero_count = check_1a_CN_LOSS_phase(cons.A, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages,
 		seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 	# all 0 entries in the Z matrix were checked and changed
 	if zero_count == 0:
 		return zero_count
 	# check for B allele
 	zero_count = check_1a_CN_LOSS_phase(cons.B, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages, 
 		seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
 
 	return zero_count
 	
 def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, seg_num=None,
-	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None):
+	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
+	initial_pps_for_all=None):
 	# if CN loss affects lineages in this phase
 	try:
 		affected_lineages = sorted(list(currentCNVs[cons.LOSS][phase].keys()))
@@ -3516,7 +3587,8 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 			lin_low = affected_lineages[j]
 			zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low,
 				triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
-				zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+				zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+				initial_pps_for_all=initial_pps_for_all)
 			# check for errors in results
 			if old_z_status == cons.Z_ONE:
 				raise eo.MyException("This shouldn't happen, deleted allele can't be"
@@ -3530,7 +3602,8 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 # lin_high: lineage with higher frequency, actually smaller index
 # lin_low: lineage with lower frequency, actually higher index
 def update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low, triplet_xys, triplet_ysx, triplet_xsy, seg_num=None, last=None,
-	ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None):
+	ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
+	initial_pps_for_all=None):
 	# if current entry is 1, nothing needs to be done
 	if z_matrix[lin_high][lin_low] == cons.Z_ONE:
 		return zero_count, cons.Z_ONE
@@ -3547,12 +3620,13 @@ def update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low, trip
 			# check whether other entries in Z matrix could be updated iteratively because of triplet changes
 			zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
 				(lin_high, lin_low), seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, 
-				gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent)
+				gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
+				initial_pps_for_all=initial_pps_for_all)
 
 		# called from sum rule algorithm
 		else:
 			update_ancestry(-1, lin_high, lin_low, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-				loss_num, CNVs, present_ssms)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 			
 		return zero_count, cons.Z_ZERO
 

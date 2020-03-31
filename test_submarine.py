@@ -14,6 +14,92 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_still_possible_parents_except_freq(self):
+
+		# 1) easy example, 3 lineages, no mutations, both pp's are still possible
+		k = 2
+		initial_pps_for_all = [[], [], [0, 1]]
+		z_matrix = [[-1, 1, 1], [-1, -1, -1], [-1, -1, -1]]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 3*3, 3)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+		seg_num = 1
+		gain_num = 0
+		loss_num = 0
+		CNVs = []
+		present_ssms = []
+
+		submarine.still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertEqual(initial_pps_for_all[2], [0, 1])
+
+		# 2) easy example, 4 lineages, no mutations, both pp's are still possible
+		k = 3
+		initial_pps_for_all = [[], [], [], [1, 2]]
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 4*4, 4)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+		seg_num = 1
+		gain_num = 0
+		loss_num = 0
+		CNVs = []
+		present_ssms = []
+
+		submarine.still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertEqual(initial_pps_for_all[3], [1, 2])
+
+		# 3) 4 lineages, mutations, only 0 can stay possible parent of 3
+		k = 3
+		initial_pps_for_all = [[], [], [], [0, 1, 2]]
+		seg_num = 1
+		gain_num = [0]
+		loss_num = [2]
+		CNVs_0 = {}
+		CNVs_0[cons.LOSS] = {}
+		CNVs_0[cons.LOSS][cons.A] = {}
+		CNVs_0[cons.LOSS][cons.A][2] = "something"
+		CNVs_0[cons.LOSS][cons.B] = {}
+		CNVs_0[cons.LOSS][cons.B][3] = "something"
+		CNVs = [CNVs_0]
+		present_ssms = [[[False, False, False, False], [False, True, False, False], [False, False, False, False]]]
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 4*4, 4)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+
+		submarine.still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertEqual(initial_pps_for_all[3], [0])
+
+		# 4) 4 lineages, mutations, only 0 and 1 can stay possible parent of 3
+		k = 3
+		initial_pps_for_all = [[], [], [], [0, 1, 2]]
+		seg_num = 1
+		gain_num = [0]
+		loss_num = [2]
+		CNVs_0 = {}
+		CNVs_0[cons.LOSS] = {}
+		CNVs_0[cons.LOSS][cons.A] = {}
+		CNVs_0[cons.LOSS][cons.A][2] = "something"
+		CNVs_0[cons.LOSS][cons.A] = {}
+		CNVs_0[cons.LOSS][cons.A][3] = "something"
+		CNVs = [CNVs_0]
+		present_ssms = [[[False, False, False, False], [False, True, False, False], [False, False, False, False]]]
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 4*4, 4)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+
+		submarine.still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertEqual(initial_pps_for_all[3], [0, 1])
+
 	def test_go_extended_version(self):
 
 		freq_file = "submarine_example/frequencies3.csv"
@@ -791,8 +877,9 @@ class ModelTest(unittest.TestCase):
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
 
-		with self.assertRaises(eo.NoParentsLeft):
+		with self.assertRaises(eo.NoParentsLeft) as e:
 			my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file)
+		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", str(e.exception))
 
 	def test_get_lineages_from_freqs(self):
 
@@ -1636,6 +1723,7 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.'")
 
 		# 5) 8 lineages, Z-matrix and frequencies are given in a way that no reconstruction exists that fulfills the sum rule
 		# when lineage 5 becomes a child of lineage 2, available frequency becomes 0
@@ -1662,8 +1750,9 @@ class ModelTest(unittest.TestCase):
 		CNVs = [{}]
 		present_ssms = None
 
-		with self.assertRaises(eo.AvailableFreqLowerZero) as e:
+		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.'")
 
 		# 6) 4 lineages, 3 has two potential parents but because 2 becomes child of 1 and relationships are updated, it becomes child of 0
 		# input
@@ -1806,6 +1895,7 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100.'", str(e.exception))
 		
 		# 11) 4 lineages, lin. 2 has unphased SSM, lineages 1 and 3 CN losses on different segments
 		# given frequency, only linear phylogeny is possible but this is not allowed by SSM phasing
@@ -1836,6 +1926,9 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeft) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100, subclone 1 has only available frequency of 0.100.'", str(e.exception))
+
 
 		# 12) 6 lineages, lin. 5 can only be a child of lin. 1, however, during the algorithm Z_{2,5} is first not set to 0
 		#	because lin. 3 is a potential parent of lin. 5 and a descendant of lin. 2
@@ -2119,79 +2212,83 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(my_lineages, my_lineages_true)
 
 
-		def test_des_are_potential_parents(self):
+	def test_des_are_potential_parents(self):
 
-			zmatrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1 , -1, -1], [-1, -1 , -1, -1]]
-			ppm = [[0, 0, 0, 0]] * 4
+		zmatrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1 , -1, -1], [-1, -1 , -1, -1]]
+		ppm = [[0, 0, 0, 0]] * 4
 
-			self.assertFalse(submarine.des_are_potential_parents(1, 3, zmatrix, ppm))
+		self.assertFalse(submarine.des_are_potential_parents(1, 3, zmatrix, ppm))
 
+		
+		zmatrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1 , -1, 0], [-1, -1 , -1, -1]]
+		ppm = [[0, 0, 0, 0] for i in range(4)]
+		ppm[3][2] = 1
+
+		self.assertTrue(submarine.des_are_potential_parents(1, 3, zmatrix, ppm))
+
+	def test_make_def_child(self):
+
+		# 1) k cannot be a child of k* because available frequency is too small
+		kstar = 0
+		k = 2
+		# Z-matrix
+		z_matrix = [[-1, 1, 1], [-1, -1, -1], [-1, -1, -1]]
+		# possible parent matrix
+		ppm = np.asarray([[0, 0, 0], [1, 0, 0], [1, 0, 0]])
+		# lineage frequencies
+		linFreqs = np.asarray([[1.0, 1.0], [0.9, 0.8], [0.7, 0.2]])
+		# available Frequencies
+		avFreqs = np.asarray([[0.1, 0.2], [0.9, 0.8], [0.7, 0.2]])
+		# Z-matrix & co object
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=None, triplet_ysx=None, triplet_xsy=None, present_ssms=None,
+			matrix_after_first_round=z_matrix)
+		seg_num = 1
+		zero_count = 0
+		gain_num = None
+		loss_num = None
+		CNVs = None
+		present_ssms = None
+		lin_num = 3
+		defparent = [-1, -1, -1]
+		initial_pps_for_all = [[], [0], [0]]
 			
-			zmatrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1 , -1, 0], [-1, -1 , -1, -1]]
-			ppm = [[0, 0, 0, 0] for i in range(4)]
-			ppm[3][2] = 1
-
-			self.assertTrue(submarine.des_are_potential_parents(1, 3, zmatrix, ppm))
-
-		def test_make_def_child(self):
-
-			# 1) k cannot be a child of k* because available frequency is too small
-			kstar = 0
-			k = 2
-			# Z-matrix
-			z_matrix = [[-1, 1, 1], [-1, -1, -1], [-1, -1, -1]]
-			# possible parent matrix
-			ppm = np.asarray([[0, 0, 0], [1, 0, 0], [1, 0, 0]])
-			# lineage frequencies
-			linFreqs = np.asarray([[1.0, 1.0], [0.9, 0.8], [0.7, 0.2]])
-			# available Frequencies
-			avFreqs = np.asarray([[0.1, 0.2], [0.9, 0.8], [0.7, 0.2]])
-			# Z-matrix & co object
-			zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=None, triplet_ysx=None, triplet_xsy=None, present_ssms=None,
-					CNVs=None, matrix_after_first_round=z_matrix)
-			seg_num = 1
-			zero_count = 0
-			gain_num = None
-			loss_num = None
-			CNVs = None
-			present_ssms = None
-			lin_num = 3
-			defparent = [-1, -1, -1]
-				
-			with self.assertRaises(eo.AvailableFreqLowerZero) as e:
-				submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-					loss_num, CNVs, present_ssms)
+		with self.assertRaises(eo.NoParentsLeft) as e:
+			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+		
+		# 2) recursive call of make_def_child doesn't work because of available frequency
+		kstar = 0
+		k = 4
+		# Z-matrix
+		z_matrix = [[-1, 1, 1, 1, 1], [-1, -1, 0, 0, -1], [-1, -1, -1, -1, -1], [-1, -1, -1, -1, -1], [-1, -1, -1, -1, -1]]
+		# possible parent matrix
+		ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
+		# lineage frequencies
+		linFreqs = np.asarray([[1.0, 1.0], [0.5, 0.5], [0.4, 0.4], [0.3, 0.3], [0.25, 0.25]])
+		# available Frequencies
+		avFreqs = np.asarray([[0.5, 0.5], [0.5, 0.5], [0.4, 0.4], [0.3, 0.3]])
+		# Z-matrix & co object
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 5*5, 5)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
+				matrix_after_first_round=z_matrix)
+		seg_num = 1
+		zero_count = 0
+		gain_num = None
+		loss_num = None
+		CNVs = None
+		present_ssms = None
+		lin_num = 5
+		defparent = [-1, 0, -1, -1, -1]
+		initial_pps_for_all = [[], [0], [0, 1], [0, 1], [0]]
+		# check for conflicht with 2
 			
-			# 2) recursive call of make_def_child doesn't work because of available frequency
-			kstar = 0
-			k = 4
-			# Z-matrix
-			z_matrix = [[-1, 1, 1, 1, 1], [-1, -1, 0, 0, -1], [-1, -1, -1, -1, -1], [-1, -1, -1, -1, -1], [-1, -1, -1, -1, -1]]
-			# possible parent matrix
-			ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
-			# lineage frequencies
-			linFreqs = np.asarray([[1.0, 1.0], [0.5, 0.5], [0.4, 0.4], [0.3, 0.3], [0.25, 0.25]])
-			# available Frequencies
-			avFreqs = np.asarray([[0.5, 0.5], [0.4, 0.4], [0.3, 0.3], [0.2, 0.2]])
-			# Z-matrix & co object
-			zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
-					z_matrix, 5*5, 5)
-			zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
-					CNVs=None, matrix_after_first_round=z_matrix)
-			seg_num = 1
-			zero_count = 0
-			gain_num = None
-			loss_num = None
-			CNVs = None
-			present_ssms = None
-			lin_num = 5
-			defparent = [-1, 0, -1, -1, -1]
-				
-			with self.assertRaises(eo.AvailableFreqLowerZero) as e:
-				submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
-					gain_num, loss_num, CNVs, present_ssms)
-			
-			#TODO test trasitivity update which fails
+		with self.assertRaises(eo.NoParentsLeft) as e:
+			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
+				gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+		self.assertEqual("'There are no possible parents for subclone 3 with frequencies of 0.300,0.300, because subclone 0 has only available frequencies of 0.250,0.250, subclone 1 has only available frequencies of 0.100,0.100.'", str(e.exception))
+		
+		#TODO test trasitivity update which fails
 
 	def test_update_possible_parents_per_child(self):
 		z_matrix = [[-1, 1, 1, 1, 1], [-1, -1, -1, 1, 0], [-1, -1, -1, -1, -1],
