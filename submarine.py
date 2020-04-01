@@ -1205,7 +1205,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	except eo.NoParentsLeft as e:
 		logging.warning(str(e))
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
-		return
+		return str(e)
 	except eo.MyException as e:
 		raise e
 	
@@ -1806,6 +1806,15 @@ def des_are_potential_parents(k_star, k, zmatrix, ppm):
             return True
 
     return False
+
+# given the possible parent matrix, creates a mapping for each subclone
+def get_possible_parents_from_ppmatrix(ppm):
+	pp_mapping = {}
+	for i in range(1,len(ppm)):
+		possible_parents = np.where(ppm[i] == 1)[0]
+		pp_mapping[i] = possible_parents
+
+	return pp_mapping
 
 def create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, present_ssms_list, triplets_list):
 	zmcos = []

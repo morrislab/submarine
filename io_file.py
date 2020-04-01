@@ -1873,9 +1873,9 @@ def possible_parents_to_string(ppm, output_file, test=False):
 	output = []
 
 	for i in range(1,len(ppm)):
-		possible_partents = np.where(ppm[i] == 1)[0]
-		possible_partents = ["{0}".format(x) for x in possible_partents]
-		output.append("{0}:{1}".format(i, ",".join(possible_partents)))
+		possible_parents = np.where(ppm[i] == 1)[0]
+		possible_parents = ["{0}".format(x) for x in possible_parents]
+		output.append("{0}:{1}".format(i, ",".join(possible_parents)))
 
 	output = "{0}".format(";".join(output))
 

@@ -14,6 +14,23 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_get_possible_parents_from_ppmatrix(self):
+
+		ppm = np.zeros(25).reshape(5,5)
+		ppm[1][0] = 1
+		ppm[2][0] = 1
+		ppm[2][1] = 1
+		ppm[3][2] = 1
+		ppm[4][1] = 1
+		ppm[4][3] = 1
+
+		pp_mapping = submarine.get_possible_parents_from_ppmatrix(ppm)
+
+		self.assertEqual(pp_mapping[1], [0])
+		self.assertTrue((pp_mapping[2] == [0, 1]).all())
+		self.assertEqual(pp_mapping[3], [2])
+		self.assertTrue((pp_mapping[4] == [1, 3]).all())
+
 	def test_still_possible_parents_except_freq(self):
 
 		# 1) easy example, 3 lineages, no mutations, both pp's are still possible
@@ -877,9 +894,8 @@ class ModelTest(unittest.TestCase):
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
 
-		with self.assertRaises(eo.NoParentsLeft) as e:
-			my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file)
-		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", str(e.exception))
+		error_message = submarine.go_basic_version(freq_file=freq_file)
+		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", error_message)
 
 	def test_get_lineages_from_freqs(self):
 
