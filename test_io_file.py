@@ -24,11 +24,11 @@ class OnctopusIOTest(unittest.TestCase):
 		last = 3
 		k = 3
 
-		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "germline->1,germline->2")
+		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "0->1,0->2")
 
 		last=4
 		k = 1
-		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "germline->2,2->4")
+		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "0->2,2->4")
 
 	def test_possible_parents_to_string(self):
 

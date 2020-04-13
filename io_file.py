@@ -1894,7 +1894,5 @@ def build_current_tree_definite_children(ppm, last, k):
 		possible_parents = np.where(ppm[i] == 1)[0]
 		if len(possible_parents) == 1:
 			parent = possible_parents[0]
-			if parent == 0:
-				parent = "germline"
 			tree_string.append("{0}->{1}".format(parent, i))
 	return ",".join(tree_string)

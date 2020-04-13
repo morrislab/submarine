@@ -933,7 +933,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		error_message = submarine.go_basic_version(freq_file=freq_file)
-		message = "There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: germline->1,1->2,1->3."
+		message = "There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: 0->1,1->2,1->3."
 		self.assertEqual(message, error_message)
 
 		# allows noise (#1)
@@ -962,7 +962,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.1)
-		self.assertEqual("There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: germline->1,1->2,1->3.", error_message)
+		self.assertEqual("There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: 0->1,1->2,1->3.", error_message)
 
 		# allows noise, threshold found in second round (#4)
 		freq_file = "testdata/unittests/frequencies4.csv"
@@ -1817,7 +1817,7 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		message = "There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.\nCurrent tree with definite children: germline->1,germline->2."
+		message = "There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.\nCurrent tree with definite children: 0->1,0->2."
 		try:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		except eo.NoParentsLeftNoise as e:
@@ -1911,7 +1911,7 @@ class ModelTest(unittest.TestCase):
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[0], np.asarray([0, 0])).all())
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[1], np.asarray([0.08, 0.47])).all())
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[2], np.asarray([0.16, 0.16])).all())
-			message = "There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.\nCurrent tree with definite children: germline->1,germline->2,1->3,1->4,2->6,2->7."
+			message = "There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.\nCurrent tree with definite children: 0->1,0->2,1->3,1->4,2->6,2->7."
 			self.assertEqual(e.message, message)
 
 		# 6) 4 lineages, 3 has two potential parents but because 2 becomes child of 1 and relationships are updated, it becomes child of 0
