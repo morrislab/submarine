@@ -3934,6 +3934,7 @@ if __name__ == '__main__':
     parser.add_argument("--noise_threshold", default=0, type=float, help ="noise threshold with which Subpoplar starts")
     args = parser.parse_args()
 
+    allow_noise = False
     if args.allow_noise == True or args.noise_threshold > 0:
     	allow_noise = True
 
