@@ -13,6 +13,23 @@ import numpy as np
 
 class OnctopusIOTest(unittest.TestCase):
 
+	def test_build_current_tree_definite_children(self):
+
+		ppm = np.zeros(25).reshape(5,5)
+		ppm[1][0] = 1
+		ppm[2][0] = 1
+		ppm[3][1] = 1
+		ppm[3][2] = 1
+		ppm[4][2] = 1
+		last = 3
+		k = 3
+
+		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "germline->1,germline->2")
+
+		last=4
+		k = 1
+		self.assertEqual(oio.build_current_tree_definite_children(ppm, last, k), "germline->2,2->4")
+
 	def test_possible_parents_to_string(self):
 
 		ppm = np.zeros(25).reshape(5,5)

@@ -933,7 +933,8 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		error_message = submarine.go_basic_version(freq_file=freq_file)
-		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", error_message)
+		message = "There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: germline->1,1->2,1->3."
+		self.assertEqual(message, error_message)
 
 		# allows noise (#1)
 		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
@@ -961,7 +962,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.1)
-		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", error_message)
+		self.assertEqual("There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: germline->1,1->2,1->3.", error_message)
 
 		# allows noise, threshold found in second round (#4)
 		freq_file = "testdata/unittests/frequencies4.csv"
@@ -1816,12 +1817,13 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.'")
+		message = "There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.\nCurrent tree with definite children: germline->1,germline->2."
 		try:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		except eo.NoParentsLeftNoise as e:
 			self.assertEqual(e.k, 3)
 			self.assertTrue(np.allclose(e.avFreqs_from_initial_pps[0], np.asarray([0.1])))
+			self.assertEqual(e.message, message)
 
 		# 4.1) 4 lineages, 1 & 2 are children of 0, in order for 3 to be a child of 0, the noise threshold has to be set up
 		# input
@@ -1876,7 +1878,6 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.'")
 
 		# 5.1) 8 lineages, Z-matrix and frequencies are given in a way that no reconstruction exists that fulfills the sum rule
 		# when lineage 5 becomes a child of lineage 2, available frequency becomes 0
@@ -1910,6 +1911,8 @@ class ModelTest(unittest.TestCase):
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[0], np.asarray([0, 0])).all())
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[1], np.asarray([0.08, 0.47])).all())
 			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[2], np.asarray([0.16, 0.16])).all())
+			message = "There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.\nCurrent tree with definite children: germline->1,germline->2,1->3,1->4,2->6,2->7."
+			self.assertEqual(e.message, message)
 
 		# 6) 4 lineages, 3 has two potential parents but because 2 becomes child of 1 and relationships are updated, it becomes child of 0
 		# input
@@ -2052,7 +2055,6 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100.'", str(e.exception))
 		
 		# 11) 4 lineages, lin. 2 has unphased SSM, lineages 1 and 3 CN losses on different segments
 		# given frequency, only linear phylogeny is possible but this is not allowed by SSM phasing
@@ -2083,8 +2085,6 @@ class ModelTest(unittest.TestCase):
 
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-
-		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100, subclone 1 has only available frequency of 0.100.'", str(e.exception))
 
 
 		# 12) 6 lineages, lin. 5 can only be a child of lin. 1, however, during the algorithm Z_{2,5} is first not set to 0
@@ -2504,7 +2504,6 @@ class ModelTest(unittest.TestCase):
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
 				gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
-		self.assertEqual("'There are no possible parents for subclone 3 with frequencies of 0.300,0.300, because subclone 0 has only available frequencies of 0.250,0.250, subclone 1 has only available frequencies of 0.100,0.100.'", str(e.exception))
 		
 		#TODO test trasitivity update which fails
 

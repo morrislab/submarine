@@ -1884,3 +1884,17 @@ def possible_parents_to_string(ppm, output_file, test=False):
 
 	with open(output_file, "w") as f:
 		f.write(output)
+
+# show the current tree, which children are definite up until last, excluding k
+def build_current_tree_definite_children(ppm, last, k):
+	tree_string = []
+	for i in range(1,last+1):
+		if i == k:
+			continue
+		possible_parents = np.where(ppm[i] == 1)[0]
+		if len(possible_parents) == 1:
+			parent = possible_parents[0]
+			if parent == 0:
+				parent = "germline"
+			tree_string.append("{0}->{1}".format(parent, i))
+	return ",".join(tree_string)

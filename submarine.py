@@ -1209,7 +1209,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		logging.warning(str(e))
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
-		return str(e)
+		return e.message
 	except eo.MyException as e:
 		raise e
 	
@@ -1672,7 +1672,7 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 	# available frequency is not allowed to be smaller than 0
 	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY + noise_threshold < 0, True, False).any():
 		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
+		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all, ppm, last)
 
 	avFreqs[kstar] = avFreqs_tmp
 	
@@ -1721,7 +1721,7 @@ def compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps):
 
 # given subclone k which cannot have any parents, return in exception the available frequency of its possible parents
 # having not enough frequency
-def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all):
+def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all, ppm, last):
 	freq_string = "frequencies"
 	if len(linFreqs[0]) == 1:
 		freq_string = "frequency"
@@ -1741,6 +1741,7 @@ def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all):
 		avFreqs_from_initial_pps.append(current_avFreqs)
 		output = output + " subclone {0} has only available {1} of {2}.".format(current_pp, freq_string,
 			",".join(["{0:.3f}".format(cfreq) for cfreq in current_avFreqs]))
+		output = output + "\nCurrent tree with definite children: {0}.".format(oio.build_current_tree_definite_children(ppm, last, k))
 		raise eo.NoParentsLeftNoise(output, k, avFreqs_from_initial_pps)
 	else:
 		output = output + "no other subclone can be parent because of equivalence and lost allele constraints."
@@ -1752,7 +1753,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 	# if relationship to normal lineage should be removed, there is no possible parent left
 	if kstar == 0 and value == -1:
 		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
-		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
+		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all, ppm, last)
 		
 	if zmco.z_matrix[kstar][k] == value:
 		return True
