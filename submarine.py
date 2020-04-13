@@ -105,7 +105,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 				undef_rels[i][SBCLR] = sbclr
-			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 				eo.RelationshipAlreadySet) as e:
 				# update not possible
 				# thus, count one tree that was enumerated
@@ -240,7 +240,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 			linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
 		undef_rels[i][SBCLR] = sbclr
-	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 		eo.RelationshipAlreadySet) as e:
 		# update not possible
 		# thus, count one tree that was enumerated
@@ -644,7 +644,8 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_dup, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft) as e:
+				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+					eo.NoParentsLeftNoise) as e:
 					pass
 				# set entry of current Z-matrix and co object to -1 (relationship absent)
 				try:
@@ -655,7 +656,8 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_current, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft) as e:
+				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+					eo.NoParentsLeftNoise) as e:
 					pass
 				# going back one level
 				return count
@@ -1005,7 +1007,7 @@ def check_monotonicity(my_cnas):
 
 					
 def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_file=None, userZ_file=None, userSSM_file=None,
-		output_prefix=None, overwrite=False, use_logging=True):
+		output_prefix=None, overwrite=False, use_logging=True, allow_noise=False, noise_threshold=0, maximal_noise=-1):
 
 	# check whether output files exist already
 	# create logging file
@@ -1082,9 +1084,10 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	zmco = zmcos[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
-			gain_num, loss_num, CNVs, present_ssms)
-	except eo.NoParentsLeft as e:
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms = outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
+			maximal_noise=maximal_noise)
+	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		logging.warning(str(e))
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
 		return
@@ -1094,6 +1097,7 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	# adapt lineages because SSMs can be phased differently after sum rule, also, relationships can differ
 	logging.debug("adapt lineages after sum rule")
 	my_lins = create_updates_lineages(my_lins, 0, [zmco.z_matrix], origin_present_ssms, [zmco.present_ssms])
+	ssm_phasing = get_new_ssm_phasing(my_lins)
 
 	# convert values in Z-matrix to values used in paper
 	z_matrix_for_output = convert_zmatrix_0_m1(zmco.z_matrix)
@@ -1105,7 +1109,6 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 		oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
 		np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
 		oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
-		ssm_phasing = get_new_ssm_phasing(my_lins)
 		oio.write_new_ssm_phasing(ssm_phasing, "{0}.ssm_phasing".format(output_prefix), overwrite)
 
 	logging.info("SubMARine is done.")
@@ -1149,7 +1152,7 @@ def check_lost_alleles_for_basic(del_segments, my_ssms):
 	return True
 
 def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True, cna_file=None,
-	ssm_file=None):
+	ssm_file=None, allow_noise=False, noise_threshold=0, maximal_noise=-1):
 
 	# check whether output files exist already
 	# create logging file
@@ -1200,16 +1203,16 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], triplets_list)[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
-			gain_num, loss_num, CNVs, present_ssms)
-	except eo.NoParentsLeft as e:
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms = outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
+			maximal_noise=maximal_noise)
+	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		logging.warning(str(e))
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
 		return str(e)
 	except eo.MyException as e:
 		raise e
 	
-
 	# adapt lineages because relationships can differ
 	logging.debug("adapt subclones after sum rule")
 	my_lins = create_updates_lineages(my_lins, 0, [zmco.z_matrix], zmco.present_ssms, [zmco.present_ssms])
@@ -1228,6 +1231,44 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	logging.info("SubMARine is done.")
 
 	return my_lins, z_matrix_for_output, avFreqs, ppm
+
+# function to call Subpoplar/sum rule algorithm and that takes care of noise threshold
+def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+	allow_noise=False, noise_threshold=0, maximal_noise=-1):
+
+	# copy objects so that the original stay unchanged during the Subpoplar try
+	zmco_copy = copy.deepcopy(zmco)
+	zero_count_copy = zero_count
+	present_ssms_copy = copy.deepcopy(present_ssms)
+
+	try:
+		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_copy, seg_num, zero_count_copy,
+			gain_num, loss_num, CNVs, present_ssms_copy, noise_threshold=noise_threshold)
+	# noise threshold was reached
+	# check whether it can be decreased, then do Subpoplar again
+	except eo.NoParentsLeftNoise as e:
+		del zmco_copy, zero_count_copy, present_ssms_copy
+
+		# if no noise is allowed, raise error
+		if allow_noise == False:
+			raise e
+
+		# compute new noise threshold
+		noise_threshold = compute_minimal_noise_threshold(e.k, frequencies, e.avFreqs_from_initial_pps)
+		# if noise threshold is too high, raise error
+		if maximal_noise > 0 and noise_threshold > maximal_noise + cons.EPSILON_FREQUENCY:
+			logging.warning("Allowed noise threshold of {0} is smaller than necessary noise thresholf of {1}.".format(
+				maximal_noise, noise_threshold))
+			raise e
+
+		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy = outer_subpoplar_w_noise(frequencies, zmco, seg_num, 
+			zero_count, gain_num, loss_num, CNVs, present_ssms,
+			allow_noise=allow_noise, noise_threshold=noise_threshold, maximal_noise=maximal_noise)
+
+	if allow_noise:
+		logging.info("Subpoplar finished with noise threshold of {0}.".format(noise_threshold))
+
+	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -1530,7 +1571,8 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 # new sum rule algorithm (October 2019)
 # processes each lineage and looks whether lineage has only one possible parent, this than becomes the
 #   definite parent, updates follow
-def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms):
+def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+	noise_threshold=0):
 	lin_num = len(zmco.z_matrix)
 	# available frequencies are initialized
 	avFreqs = copy.deepcopy(linFreqs)
@@ -1550,20 +1592,20 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 		# iterate over all possible parents
 		for k_star in possible_parents:
 			# if k_star cannot be a possible parent
-			if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY).any():
+			if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY+noise_threshold).any():
 				ppm[k][k_star] = 0
 
 				posdes = get_possible_descendants(zmco.z_matrix, k_star, k)
 				# if no possible descendant of k_star is possible parent of k
 				if sum([ppm[k][k_circ] for k_circ in posdes]) == 0:
 					update_ancestry(-1, k_star, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-						loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+						loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 		possible_parents = np.where(ppm[k] == 1)[0]
 		# if k has only one possible parent k_star
 		if len(possible_parents) == 1 and defparent[k] == -1:
 			make_def_child(possible_parents[0], k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 		elif len(possible_parents) < 1 and defparent[k] == -1:
 			raise eo.NoParentsLeft("There are no possible parents for lineage {0}.".format(k))
 
@@ -1575,7 +1617,7 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 			possible_parents = np.where(ppm[k] == 1)[0]
 			lca = get_lca_from_multiple_lineages(possible_parents, zmco.z_matrix)
 			update_ancestry(1, lca, k, lin_num-1, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num,
-				loss_num, CNVs, present_ssms)
+				loss_num, CNVs, present_ssms, noise_threshold=noise_threshold)
 	
 	return True, avFreqs, ppm
 
@@ -1621,13 +1663,14 @@ def still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, ze
 
 	initial_pps_for_all[k] = still_pps
 
-def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=None):
+def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=None,
+	noise_threshold=0):
 	
 	# available frequency gets adapted for all samples n
 	avFreqs_tmp = np.subtract(avFreqs[kstar], linFreqs[k])
 	
 	# available frequency is not allowed to be smaller than 0
-	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY < 0, True, False).any():
+	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY + noise_threshold < 0, True, False).any():
 		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
 
@@ -1641,28 +1684,43 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 		kprime = possible_children.pop(0)
 	    
 		# if k* cannot be possible parent of k'
-		if np.greater(linFreqs[kprime], avFreqs[kstar]+cons.EPSILON_FREQUENCY).any():
+		if np.greater(linFreqs[kprime], avFreqs[kstar] + cons.EPSILON_FREQUENCY + noise_threshold).any():
 			ppm[kprime][kstar] = 0
 			
 			posdes = get_possible_descendants(zmco.z_matrix, kstar, kprime)
 			# if no possible descendant of k* is possible parent of k'
 			if sum([ppm[kprime][k_circ] for k_circ in posdes]) == 0:
 				update_ancestry(-1, kstar, kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, 
-			    	CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+			    		CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 			
 			possible_parents = np.where(ppm[kprime] == 1)[0]
 			# if k' has only one possible parent k_circ, which is not yet definite parent
 			if len(possible_parents) == 1 and defparent[kprime] == -1:
 		    		make_def_child(possible_parents[0], kprime, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-					loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+					loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 		
 		possible_children = get_possible_children_smaller_last_greater_kprime(ppm, kstar, kprime, last, defparent)
 	
 	update_ancestry(1, kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-		initial_pps_for_all=initial_pps_for_all)
+		initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	
 	return True
 
+
+def compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps):
+	assert isinstance(linFreqs, np.ndarray)
+
+	# difference between available frequencies and frequency of lineage k
+	diff_freq = avFreqs_from_initial_pps - linFreqs[k]
+	# for each possible parent, the most negative value is taken
+	max_diffs = np.amin(diff_freq, axis=1) * (-1)
+	# minimal noise threshold is chosen
+	minimal_noise_threshold = np.min(max_diffs)
+
+	return minimal_noise_threshold
+
+# given subclone k which cannot have any parents, return in exception the available frequency of its possible parents
+# having not enough frequency
 def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all):
 	freq_string = "frequencies"
 	if len(linFreqs[0]) == 1:
@@ -1670,21 +1728,30 @@ def check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all):
 
 	output = "There are no possible parents for subclone {0} with {1} of {2}, because".format(k, freq_string,
 		",".join(["{0:.3f}".format(cfreq) for cfreq in linFreqs[k]]))
+	avFreqs_from_initial_pps = []
 	if len(initial_pps_for_all[k]) > 0:
 		for i in range(len(initial_pps_for_all[k])-1):
-			output = output + " subclone {0} has only available {1} of {2},".format(initial_pps_for_all[k][i], freq_string,
-				",".join(["{0:.3f}".format(cfreq) for cfreq in avFreqs[initial_pps_for_all[k][i]]]))
-		output = output + " subclone {0} has only available {1} of {2}.".format(initial_pps_for_all[k][-1], freq_string,
-			",".join(["{0:.3f}".format(cfreq) for cfreq in avFreqs[initial_pps_for_all[k][-1]]]))
+			current_pp = initial_pps_for_all[k][i]
+			current_avFreqs = avFreqs[current_pp]
+			avFreqs_from_initial_pps.append(current_avFreqs)
+			output = output + " subclone {0} has only available {1} of {2},".format(current_pp, freq_string,
+				",".join(["{0:.3f}".format(cfreq) for cfreq in current_avFreqs]))
+		current_pp = initial_pps_for_all[k][-1]
+		current_avFreqs = avFreqs[current_pp]
+		avFreqs_from_initial_pps.append(current_avFreqs)
+		output = output + " subclone {0} has only available {1} of {2}.".format(current_pp, freq_string,
+			",".join(["{0:.3f}".format(cfreq) for cfreq in current_avFreqs]))
+		raise eo.NoParentsLeftNoise(output, k, avFreqs_from_initial_pps)
 	else:
 		output = output + "no other subclone can be parent because of equivalence and lost allele constraints."
-	raise eo.NoParentsLeft(output)
+		raise eo.NoParentsLeft(output)
 
 def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFreqs=None, avFreqs=None, zmco=None, seg_num=None, 
-	zero_count=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, initial_pps_for_all=None):
+	zero_count=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, initial_pps_for_all=None, noise_threshold=0):
 
 	# if relationship to normal lineage should be removed, there is no possible parent left
 	if kstar == 0 and value == -1:
+		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all)
 		
 	if zmco.z_matrix[kstar][k] == value:
@@ -1708,7 +1775,7 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 		# if k has only one possible parent k^\circ
 		if len(possible_parents) == 1:
 			make_def_child(possible_parents[0], k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num,
-				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	# if ancestor-descendant relationship gets transformed to present one
 	if value == 1 and zmco.present_ssms is not None:
@@ -1724,7 +1791,8 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 			post_analysis_Z_matrix(None, seg_num, zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
 				get_CNVs=False, matrix_splitting=False, check_crossing_rule=False, return_mutation_information=False,
 				gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, absence_propagation=True, path_lineages=None,
-				last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+				last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+				noise_threshold=noise_threshold)
 
 	# if ancestor-descendant relationship gets transformed to absent one
 	if value == -1 and last is not None:
@@ -1734,14 +1802,14 @@ def update_ancestry(value, kstar, k, last=None, ppm=None, defparent=None, linFre
 			# if possible ancestor k^\circ of k* has no possible descendant that is possible parent of k and is not possible parent itself
 			if sum([ppm[k][kbullet] for kbullet in possible_descendants]) == 0 and ppm[k][kcirc] == 0:
 				update_ancestry(-1, kcirc, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-					initial_pps_for_all=initial_pps_for_all)
+					initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
         # transitivity update with parent checking
 	dummy_zero_count = len(zmco.z_matrix) * len(zmco.z_matrix)
 	try:
 		update_Z_matrix_iteratively(zmco.z_matrix, dummy_zero_count, zmco.triplet_xys, zmco.triplet_ysx, zmco.triplet_xsy,
 			(kstar, k), zmco.present_ssms, CNVs, zmco.matrix_after_first_round,
-			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all)
+			last, ppm, avFreqs, linFreqs, zmco, seg_num, gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	except eo.MyException as e:
 		raise e
 
@@ -1906,7 +1974,7 @@ def check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lineage
 def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_s, x, y, s,
 	triplet_xys, triplet_ysx, triplet_xsy, present_ssms=None, CNVs=None, matrix_after_first_round=None,
         last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# update number of 0's
 	# each change decreases the number of 0's by one
 	zero_count -= 1
@@ -1972,7 +2040,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 		try:
 			zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
 				index_pair, present_ssms, CNVs, matrix_after_first_round, last, ppm, avFreqs, linFreqs, zmco, seg_num,
-				gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all)
+				gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 		except eo.ZInconsistence as e:
 			raise e
 
@@ -1986,7 +2054,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 	# is called from sum rule algorithm
 	else:
 		update_ancestry(new_z_entry, index_pair[0], index_pair[1], last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
-			gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+			gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	return zero_count
 	
@@ -2009,7 +2077,8 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 # can raise exception ADRelationNotPossible when SSM phasing prevents update of relationships
 def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, index_pair,
 	present_ssms=None, CNVs=None, matrix_after_first_round=None, last=None, ppm=None, avFreqs=None, 
-        linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None, defparent=None, initial_pps_for_all=None):
+        linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None, defparent=None, initial_pps_for_all=None,
+	noise_threshold=0):
 	first_index = index_pair[0]
 	second_index = index_pair[1]
 	# check whether lowest triplets are influenced by change
@@ -2052,7 +2121,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
 					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
-					initial_pps_for_all=initial_pps_for_all)
+					initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	# no triplet was found
 	except KeyError:
@@ -2100,7 +2169,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
 					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
-					initial_pps_for_all=initial_pps_for_all)
+					initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	# no triplet was found
 	except KeyError:
 		pass
@@ -2147,7 +2216,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
                                         last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, seg_num=seg_num,
 					present_ssms=present_ssms, CNVs=CNVs, gain_num=gain_num, loss_num=loss_num,
 					matrix_after_first_round=matrix_after_first_round, defparent=defparent,
-					initial_pps_for_all=initial_pps_for_all)
+					initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	# no triplet was found
 	except KeyError:
 		pass
@@ -2337,7 +2406,7 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 	get_CNVs=False, matrix_splitting=True, check_crossing_rule=True, return_mutation_information=False,
 	gain_num=[], loss_num=[], CNVs=[], present_ssms=[], absence_propagation=False, path_lineages=None, last=None,
 	ppm=None, avFreqs=None, linFreqs=None, zmco=None, defparent=None, first_absence_propagation=False, 
-	initial_pps_for_all=None):
+	initial_pps_for_all=None, noise_threshold=0):
 
 	# if function is called for propagation of relationship absence, these things were already done before
 	if absence_propagation == False and first_absence_propagation == False:
@@ -2377,38 +2446,44 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 		zero_count = check_1a_CN_LOSS(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all, 
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_1c_CN_loss(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_1d_2c_CN_losses(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_2f_CN_gains(gain_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_2h_LOH(loss_num[seg_index], gain_num[seg_index], CNVs[seg_index], z_matrix, 
 			zero_count, present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num,
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_2i_phased_changes(CNVs[seg_index], z_matrix, zero_count, present_ssms[seg_index],
 			triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_1f_2d_2g_2j_losses_gains(loss_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
@@ -2416,14 +2491,16 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			first_run=True, mutations=cons.LOSS, path_lineages=path_lineages, seg_num=seg_num,
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		zero_count = check_1f_2d_2g_2j_losses_gains(gain_num[seg_index], CNVs[seg_index], z_matrix, zero_count, 
 			present_ssms[seg_index], triplet_xys, triplet_ysx, triplet_xsy,
 			first_run=True, mutations=cons.GAIN, path_lineages=path_lineages, seg_num=seg_num, last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+			noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		loss_A_num = 0
@@ -2442,7 +2519,7 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
 			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, mut_num_B=gain_B_num,
-			mutations_B=cons.GAIN, initial_pps_for_all=initial_pps_for_all)
+			mutations_B=cons.GAIN, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 		if zero_count == 0:
 			break
 		loss_B_num = 0
@@ -2463,7 +2540,7 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 			last=last,
 			ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
 			CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, mut_num_B=loss_B_num,
-			mutations_B=cons.LOSS, initial_pps_for_all=initial_pps_for_all)
+			mutations_B=cons.LOSS, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	# iterate through all segments a second time and check the hard cases now
 	# that are not easy to resolve and might result in multiple Z-matrices
@@ -2979,7 +3056,8 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 	triplet_xys, triplet_ysx, triplet_xsy, first_run=True, mutations=cons.LOSS,
 	z_matrix_fst_rnd=None, z_matrix_list=None, triplets_list=None, present_ssms_list=None, seg_index=None,
 	CNVs_all=None, path_lineages=None, seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, 
-	loss_num=None, CNVs=None, present_ssms=None, defparent=None, mut_num_B=0, mutations_B=None, initial_pps_for_all=None):
+	loss_num=None, CNVs=None, present_ssms=None, defparent=None, mut_num_B=0, mutations_B=None, initial_pps_for_all=None,
+	noise_threshold=0):
 	# at least 2 CN changes of the specific mutation type or 1 CN change of each
 	if spec_mut_num < 2 and (spec_mut_num < 1 or mut_num_B < 1):
 		return zero_count
@@ -3031,7 +3109,8 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										triplet_xys, triplet_ysx, triplet_xsy,
 										seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
 										zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-										defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+										defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+										noise_threshold=noise_threshold)
 									if old_z_status == cons.Z_ONE:
 										raise eo.MyException("This shouldn't happen. "
 											"Both alleles were deleted, there "
@@ -3055,7 +3134,8 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 										triplet_xys, triplet_ysx, triplet_xsy,
 										seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
 										zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-										defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+										defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+										noise_threshold=noise_threshold)
 									# if middle lineage has unphased SSMs, it's not possible
 									# that is was in any relation with the other lineage
 									#if old_z_status_p + old_z_status_pp >= 1:
@@ -3078,13 +3158,15 @@ def check_1f_2d_2g_2j_losses_gains(spec_mut_num, current_CNVs, z_matrix, zero_co
 								triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 								last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 								loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-								defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+								defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+								noise_threshold=noise_threshold)
 							zero_count, old_z_status_pp = update_z_matrix_first_round_m1(z_matrix,
 								zero_count, high_lin, k_prime_prime, 
 								triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 								last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 								loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-								defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+								defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+								noise_threshold=noise_threshold)
 							# if higher lineage has unphased SSMs it can't be in an
 							# ancestor-descendant relation to k' and/or k''
 							if old_z_status_p + old_z_status_pp >= 1:
@@ -3353,7 +3435,7 @@ def other_phase(phase):
 # case 2i) considers all changes that can happen somewhere, SSMs in upstream lineages are influenced
 def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	for changes in current_CNVs.keys():
 		for phases in current_CNVs[changes].keys():
 			for my_lin in current_CNVs[changes][phases]:
@@ -3368,7 +3450,7 @@ def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_
 							triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 							ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 							loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-							initial_pps_for_all=initial_pps_for_all)
+							initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 						if zero_count == 0:
 							return zero_count 
 	return zero_count 
@@ -3376,7 +3458,7 @@ def check_2i_phased_changes(current_CNVs, z_matrix, zero_count, current_present_
 # case 2h) LOH in a lineage, influence on SSMs in upstream lineage
 def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, 
 	path_lineages=None, seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, 
-	present_ssms=None, defparent=None, initial_pps_for_all=None):
+	present_ssms=None, defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# both current_loss_num and current_gain_num have to be at least one
 	if current_loss_num == 0 or current_gain_num == 0:
 		return zero_count
@@ -3406,7 +3488,8 @@ def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zer
 					zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count,
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-						CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+						CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all,
+						noise_threshold=noise_threshold)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3414,7 +3497,7 @@ def check_2h_LOH(current_loss_num, current_gain_num, current_CNVs, z_matrix, zer
 # case 2f) two gains on different alleles in the same lineage, influence SSMs in upstream lineages
 def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# needs at least two CN gains
 	if current_gain_num < 2:
 		return zero_count
@@ -3441,7 +3524,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-						initial_pps_for_all=initial_pps_for_all)
+						initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3451,7 +3534,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 # case 2d) two losses in same lineage, influence on SSMs in upstream lineages
 def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None,
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# needs at least two CN losses
 	if current_loss_num < 2:
 		return zero_count
@@ -3483,7 +3566,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 						triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 						ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-						initial_pps_for_all=initial_pps_for_all)
+						initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 					# check for errors in results
 					if old_z_status == cons.Z_ONE:
 						raise eo.MyException("This shouldn't happen, "
@@ -3500,7 +3583,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 						higher_lin, my_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num,
 						last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, 
 						loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-						initial_pps_for_all=initial_pps_for_all)
+						initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 					if zero_count == 0:
 						return zero_count
 	return zero_count
@@ -3508,7 +3591,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 # case 1c): downstream SSM can be on a deleted allele
 def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, 
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# needs at least one CN loss
 	if current_loss_num == 0:
 		return zero_count
@@ -3517,7 +3600,7 @@ def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, curre
 	zero_count = check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, cons.A, current_present_ssms,
 		triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 		ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-		defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+		defparent=defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	# all 0 entries in the Z matrix were checked and changed
 	if zero_count == 0:
 		return zero_count
@@ -3525,14 +3608,14 @@ def check_1c_CN_loss(current_loss_num, current_CNVs, z_matrix, zero_count, curre
 	zero_count = check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, cons.B, current_present_ssms,
 		triplet_xys, triplet_ysx, triplet_xsy, path_lineages, seg_num=seg_num, last=last,
 		ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
-		defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+		defparent=defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	return zero_count
 
 def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count, phase, current_present_ssms, triplet_xys, triplet_ysx, triplet_xsy, 
 	path_lineages=None, 
 	seg_num=None, last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	defparent=None, initial_pps_for_all=None):
+	defparent=None, initial_pps_for_all=None, noise_threshold=0):
 	# CN loss needs to affect a lineage
 	try:
 		affected_lineages = sorted(list(current_CNVs[cons.LOSS][phase].keys()))
@@ -3550,7 +3633,8 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 				zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, 
 					lin_index, lower_lin, triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last,
 					ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, 
-					present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+					present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all, 
+					noise_threshold=noise_threshold)
 				# check for errors in results
 				if old_z_status == cons.Z_ONE:
 					raise eo.MyException("This shouldn't happen, deleted allele can't "
@@ -3563,7 +3647,7 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 # case 1a): one allele can only be deleted once
 def check_1a_CN_LOSS(current_loss_num, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, seg_num=None,
 	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
-	initial_pps_for_all=None):
+	initial_pps_for_all=None, noise_threshold=0):
 	# needs more than one CN loss
 	if current_loss_num <= 1:
 		return zero_count
@@ -3571,20 +3655,20 @@ def check_1a_CN_LOSS(current_loss_num, currentCNVs, z_matrix, zero_count, triple
 	# check for A allele
 	zero_count = check_1a_CN_LOSS_phase(cons.A, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages,
 		seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 	# all 0 entries in the Z matrix were checked and changed
 	if zero_count == 0:
 		return zero_count
 	# check for B allele
 	zero_count = check_1a_CN_LOSS_phase(cons.B, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages, 
 		seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, gain_num=gain_num, loss_num=loss_num, 
-		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all)
+		CNVs=CNVs, present_ssms=present_ssms, defparent=defparent, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 	return zero_count
 	
 def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, path_lineages=None, seg_num=None,
 	last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
-	initial_pps_for_all=None):
+	initial_pps_for_all=None, noise_threshold=0):
 	# if CN loss affects lineages in this phase
 	try:
 		affected_lineages = sorted(list(currentCNVs[cons.LOSS][phase].keys()))
@@ -3606,7 +3690,7 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 			zero_count, old_z_status = update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low,
 				triplet_xys, triplet_ysx, triplet_xsy, seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, 
 				zmco=zmco, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-				initial_pps_for_all=initial_pps_for_all)
+				initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 			# check for errors in results
 			if old_z_status == cons.Z_ONE:
 				raise eo.MyException("This shouldn't happen, deleted allele can't be"
@@ -3621,7 +3705,7 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 # lin_low: lineage with lower frequency, actually higher index
 def update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low, triplet_xys, triplet_ysx, triplet_xsy, seg_num=None, last=None,
 	ppm=None, avFreqs=None, linFreqs=None, zmco=None, gain_num=None, loss_num=None, CNVs=None, present_ssms=None, defparent=None,
-	initial_pps_for_all=None):
+	initial_pps_for_all=None, noise_threshold=0):
 	# if current entry is 1, nothing needs to be done
 	if z_matrix[lin_high][lin_low] == cons.Z_ONE:
 		return zero_count, cons.Z_ONE
@@ -3639,12 +3723,12 @@ def update_z_matrix_first_round_m1(z_matrix, zero_count, lin_high, lin_low, trip
 			zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
 				(lin_high, lin_low), seg_num=seg_num, last=last, ppm=ppm, avFreqs=avFreqs, linFreqs=linFreqs, zmco=zmco, 
 				gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms, defparent=defparent,
-				initial_pps_for_all=initial_pps_for_all)
+				initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 
 		# called from sum rule algorithm
 		else:
 			update_ancestry(-1, lin_high, lin_low, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_threshold=noise_threshold)
 			
 		return zero_count, cons.Z_ZERO
 
@@ -3844,18 +3928,24 @@ if __name__ == '__main__':
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
     parser.add_argument("--basic_version", action='store_true', help="starts basic version")
     parser.add_argument("--extended_version", action='store_true', help="starts extended version")
+    parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
+    parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise threshold to which Subpoplar can be extended")
+    parser.add_argument("--noise_threshold", default=0, type=float, help ="noise threshold with which Subpoplar starts")
     args = parser.parse_args()
+
+    if args.allow_noise == True or args.noise_threshold > 0:
+    	allow_noise = True
 
     if args.dfs:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
                 cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
-		cna_file=args.cna_file, ssm_file=args.ssm_file)
+		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise)
     elif args.extended_version:
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
-		output_prefix=args.output_prefix, overwrite=args.overwrite)
+		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 

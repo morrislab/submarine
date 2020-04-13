@@ -14,6 +14,29 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_compute_minimal_noise_threshold(self):
+
+		k = 3
+		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.4, 0.75]])
+		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
+
+		self.assertEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.55)
+
+		# other example
+		k = 3
+		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.7, 0.75]])
+		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
+
+		self.assertEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.6)
+
+		# other example
+		k = 3
+		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.6, 0.7], [0.7, 0.3]])
+		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.3, 0.1]])
+
+		self.assertAlmostEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.4)
+
+
 	def test_get_possible_parents_from_ppmatrix(self):
 
 		ppm = np.zeros(25).reshape(5,5)
@@ -168,7 +191,7 @@ class ModelTest(unittest.TestCase):
 		cnv3.phase = cons.B
 		cnv3.lineage = 4
 		cnv3.index = 3
-		lin0 = lineage.Lineage([1, 2, 3, 4, 5], [1.0], [], [], [], [], [], [], [], [])
+		lin0 = lineage.Lineage([1, 2, 3, 4, 5], [1.0, 1.0], [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([3, 4], [0.5, 0.5], [], [], [], [], [], [], [ssm0], [ssm1, ssm2])
 		lin2 = lineage.Lineage([5], [0.49, 0.49], [], [cnv2], [], [], [], [], [], [])
 		lin3 = lineage.Lineage([4], [0.48, 0.48], [cnv0, cnv1], [], [], [], [], [], [], [])
@@ -188,6 +211,21 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue((true_ppm == ppm).all())
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
+
+		# example #5) that tests working with noise
+		freq_file = "testdata/unittests/frequencies5.csv"
+		cna_file = "testdata/unittests/cnas6.csv"
+		ssm_file = "testdata/unittests/ssms5.csv"
+		impact_file = "testdata/unittests/impact2.csv"
+
+		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
+			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
+			allow_noise=True)
+
+		self.assertTrue((ppm == ppm_true).all())
+		self.assertEqual(ssm_phasing[0], [0, None])
 
 	def test_check_lost_alleles_for_basic(self):
 		# works
@@ -896,6 +934,45 @@ class ModelTest(unittest.TestCase):
 
 		error_message = submarine.go_basic_version(freq_file=freq_file)
 		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", error_message)
+
+		# allows noise (#1)
+		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
+
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0],])
+		real_avFreqs = np.asarray([[-0.2, -0.11], [0, 0], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
+		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
+
+		# allows noise, given theshold is large enough (#2)
+		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_threshold=0.3)
+
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0],])
+		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, -1, -1, -1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
+		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
+
+		# maximal noise threshold too small (#3)
+		freq_file = "testdata/unittests/frequencies3.csv"
+
+		error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.1)
+		self.assertEqual("'There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.'", error_message)
+
+		# allows noise, threshold found in second round (#4)
+		freq_file = "testdata/unittests/frequencies4.csv"
+		userZ_file = "testdata/unittests/userZ_3.csv"
+
+		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
+
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
+		real_avFreqs = np.asarray([[-0.4, 0.1], [-0.3, -0.1], [0.6, 0.5], [0.5, 0.6], [0.5, 0]])
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
 
 	def test_get_lineages_from_freqs(self):
 
@@ -1737,9 +1814,40 @@ class ModelTest(unittest.TestCase):
 		present_ssms = None
 
 
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 3 with frequency of 0.300, because subclone 0 has only available frequency of 0.100.'")
+		try:
+			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		except eo.NoParentsLeftNoise as e:
+			self.assertEqual(e.k, 3)
+			self.assertTrue(np.allclose(e.avFreqs_from_initial_pps[0], np.asarray([0.1])))
+
+		# 4.1) 4 lineages, 1 & 2 are children of 0, in order for 3 to be a child of 0, the noise threshold has to be set up
+		# input
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		linFreqs = np.asarray([[1.0], [0.5], [0.4], [0.3]])
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+				z_matrix, 4*4, 4)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
+				matrix_after_first_round=z_matrix)
+		seg_num = 1
+		zero_count = 10 # set to some number, doesn't need to make sense
+		gain_num = [1]
+		loss_num = [1]
+		CNVs = [{}]
+		present_ssms = None
+
+		ppm_true = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]]
+		avFreqs_true = np.asarray([[-0.2], [0.5], [0.4], [0.3]])
+		new_z = z_matrix = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+
+		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+			noise_threshold=0.2)
+		self.assertTrue(mybool)
+		self.assertTrue(np.array_equal(np.asarray(ppm_true), ppm))
+		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
+		self.assertEqual(zmco.z_matrix, new_z)
 
 		# 5) 8 lineages, Z-matrix and frequencies are given in a way that no reconstruction exists that fulfills the sum rule
 		# when lineage 5 becomes a child of lineage 2, available frequency becomes 0
@@ -1766,9 +1874,42 @@ class ModelTest(unittest.TestCase):
 		CNVs = [{}]
 		present_ssms = None
 
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		self.assertEqual(str(e.exception), "'There are no possible parents for subclone 5 with frequencies of 0.200,0.030, because subclone 0 has only available frequencies of 0.000,0.000, subclone 1 has only available frequencies of 0.080,0.470, subclone 2 has only available frequencies of 0.160,0.160.'")
+
+		# 5.1) 8 lineages, Z-matrix and frequencies are given in a way that no reconstruction exists that fulfills the sum rule
+		# when lineage 5 becomes a child of lineage 2, available frequency becomes 0
+		# test returned exception
+		# input
+		z_matrix = [
+				[-1, 1, 1, 1, 1, 1, 1, 1],
+				[-1, -1, -1, 0, 1, 0, -1, -1],
+				[-1, -1, -1, 0, -1, 0, 1, 1],
+				[-1, -1, -1, -1, -1, -1, -1, -1],
+				[-1, -1, -1, -1, -1, -1, -1, -1],
+				[-1, -1, -1, -1, -1, -1, -1, -1],
+				[-1, -1, -1, -1, -1, -1, -1, -1],
+				[-1, -1, -1, -1, -1, -1, -1, -1]
+				]
+		linFreqs = np.asarray([[1.0, 1.0], [0.6, 0.6], [0.4, 0.4], [0.27, 0.08], [0.25, 0.05], [0.2, 0.03], [0.13, 0.13], [0.11, 0.11]])
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+				z_matrix, 8*8, 8)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=None,
+				matrix_after_first_round=z_matrix)
+		seg_num = 1
+		zero_count = 10 # set to some number, doesn't need to make sense
+		gain_num = [1]
+		loss_num = [1]
+		CNVs = [{}]
+		present_ssms = None
+		try:
+			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+		except eo.NoParentsLeftNoise as e:
+			self.assertEqual(e.k, 5)
+			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[0], np.asarray([0, 0])).all())
+			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[1], np.asarray([0.08, 0.47])).all())
+			self.assertTrue(np.isclose(e.avFreqs_from_initial_pps[2], np.asarray([0.16, 0.16])).all())
 
 		# 6) 4 lineages, 3 has two potential parents but because 2 becomes child of 1 and relationships are updated, it becomes child of 0
 		# input
@@ -1909,7 +2050,7 @@ class ModelTest(unittest.TestCase):
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
 				matrix_after_first_round=copy.deepcopy(z_matrix))
 
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100.'", str(e.exception))
 		
@@ -1940,7 +2081,7 @@ class ModelTest(unittest.TestCase):
 		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
 				matrix_after_first_round=copy.deepcopy(z_matrix))
 
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 
 		self.assertEqual("'There are no possible parents for subclone 3 with frequency of 0.700, because subclone 0 has only available frequency of 0.100, subclone 1 has only available frequency of 0.100.'", str(e.exception))
@@ -2138,9 +2279,9 @@ class ModelTest(unittest.TestCase):
 		# ancestor of 1
 		z_matrix = [[-1, 1, 1, 1, 1],
 			[-1, -1, 0, 0, 0],
-		[-1, -1, -1, 0, 0],
-		[-1, -1, -1, -1, 0],
-		[-1, -1, -1, -1, -1]]
+			[-1, -1, -1, 0, 0],
+			[-1, -1, -1, -1, 0],
+			[-1, -1, -1, -1, -1]]
 		linFreqs = np.asarray([[1.0], [1.0], [0.8], [0.8], [0.2]])
 		lin0 = lineage.Lineage([1, 2, 3, 4], 1.0, [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([], 1.0, [], [], [], [], [], [], [], [])
@@ -2164,16 +2305,77 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = [
 			[0, 0, 0, 0, 0],
-		[1, 0, 0, 0, 0],
-		[0, 1, 0, 0, 0],
-		[0, 0, 1, 0, 0],
-		[0, 1, 0, 1, 0]
+			[1, 0, 0, 0, 0],
+			[0, 1, 0, 0, 0],
+			[0, 0, 1, 0, 0],
+			[0, 1, 0, 1, 0]
 			]
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertEqual(zmco.z_matrix[1][4], 1)
+
+		# 17) 3 lineages, 2 can be child of 0 because of noise threshold
+		# tests outer loop of sum rule and make_def_child first mention of threshold
+		z_matrix = [[-1, 1, 1], [-1, -1, -1], [-1, -1, -1]]
+		linFreqs = np.asarray([[1.0], [1.0], [0.2]])
+		lin0 = lineage.Lineage([1, 2], 1.0, [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], 1.0, [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], 0.2, [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 3*3, 3)
+		seg_num = 1
+		gain_num = []
+		loss_num = []
+		CNVs = []
+		present_ssms = []
+		lineage_num = 3
+		ssm_infl_cnv_same_lineage = []
+		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+			ssm_infl_cnv_same_lineage)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+
+		ppm_true = [[0, 0, 0], [1, 0, 0], [1, 0 , 0]]
+		avFreqs_true = np.asarray([[-0.2], [1.0], [0.2]])
+
+		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+			noise_threshold=0.2)
+
+		self.assertEqual(ppm.tolist(), ppm_true)
+		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
+
+		# 18) 3 lineages, 2 can be child of both 0 and 1 when noise threshold is high enough
+		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+		linFreqs = np.asarray([[1.0], [1.0], [0.2]])
+		lin0 = lineage.Lineage([1, 2], 1.0, [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], 1.0, [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], 0.2, [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 3*3, 3)
+		seg_num = 1
+		gain_num = []
+		loss_num = []
+		CNVs = []
+		present_ssms = []
+		lineage_num = 3
+		ssm_infl_cnv_same_lineage = []
+		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+			ssm_infl_cnv_same_lineage)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+
+		ppm_true = [[0, 0, 0], [1, 0, 0], [1, 1 , 0]]
+		avFreqs_true = np.asarray([[0], [1.0], [0.2]])
+
+		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+			noise_threshold=0.2)
+
+		self.assertEqual(ppm.tolist(), ppm_true)
+		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
 
 		
 
@@ -2268,7 +2470,7 @@ class ModelTest(unittest.TestCase):
 		defparent = [-1, -1, -1]
 		initial_pps_for_all = [[], [0], [0]]
 			
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
 				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 		
@@ -2299,7 +2501,7 @@ class ModelTest(unittest.TestCase):
 		initial_pps_for_all = [[], [0], [0, 1], [0, 1], [0]]
 		# check for conflicht with 2
 			
-		with self.assertRaises(eo.NoParentsLeft) as e:
+		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
 				gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
 		self.assertEqual("'There are no possible parents for subclone 3 with frequencies of 0.300,0.300, because subclone 0 has only available frequencies of 0.250,0.250, subclone 1 has only available frequencies of 0.100,0.100.'", str(e.exception))

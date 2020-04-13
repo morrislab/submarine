@@ -1,10 +1,21 @@
 class  MyException(Exception):
-	
 	def __init__(self, value):
 		self.value = value
 
 	def __str__(self):
 		return repr(self.value)
+
+class NoParentsLeftNoise(Exception):
+	def __init__(self, message, k, avFreqs_from_initial_pps):
+		self.message = message
+		self.k = k
+		self.avFreqs_from_initial_pps = avFreqs_from_initial_pps
+
+	def __str__(self):
+		return repr(self.message)
+
+class NoParentsLeft(MyException):
+	pass
 	
 class AddingException(MyException):
 	pass
@@ -78,8 +89,6 @@ class ZMatrixNotNone(MyException):
 	pass
 class SumRuleRelationshipForbidsUpdate(MyException):
         pass
-class NoParentsLeft(MyException):
-	pass
 class RelationshipAlreadySet(MyException):
 	pass
 class ReconstructionInvalid(MyException):
