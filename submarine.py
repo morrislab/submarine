@@ -1088,7 +1088,9 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
 			maximal_noise=maximal_noise)
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
-		logging.warning(str(e))
+		message1, message2 = e.message.split("\n")
+		logging.warning(message1)
+		logging.info(message2)
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
 		return
 	except eo.MyException as e:
@@ -1207,7 +1209,9 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
 			maximal_noise=maximal_noise)
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
-		logging.warning(str(e))
+		message1, message2 = e.message.split("\n")
+		logging.warning(message1)
+		logging.info(message2)
 		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
 		return e.message
 	except eo.MyException as e:
