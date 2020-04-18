@@ -2377,6 +2377,54 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
 
+
+		# 19) example why it needs to be checked that subclone doesn't have other _possible_ descendants that are possible parents before setting Z to 0
+		# 5 can only be child of 1
+		# thne 3 becomes child of 2, and 4 of 3
+		# the order in which this update happens requires 2 to have possible descendants that are possible possible parents of 4,
+		# otherwise Z(2,4) would be set to 0
+		z_matrix = [
+			[-1, 1, 1, 1, 1, 1],
+			[-1, -1, 0, 0, 0, 0],
+			[-1, -1, -1, 0, 0, -1],
+			[-1, -1, -1, -1, 0, -1],
+			[-1, -1, -1, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1,]
+			]
+		linFreqs = np.asarray([[1.0, 1.0], [1.0, 1.0], [0.45, 0.5], [0.4, 0.4], [0.3, 0.3], [0.5, 0.1]])
+		lin0 = lineage.Lineage([1, 2, 3, 4, 5], [1.0, 1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [1.0, 1.0], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.45,0.5], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.4, 0.4], [], [], [], [], [], [], [], [])
+		lin4 = lineage.Lineage([], [0.3, 0.3], [], [], [], [], [], [], [], [])
+		lin5 = lineage.Lineage([], [0.5, 0.1], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3, lin4, lin5]
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+			z_matrix, 6*6, 6)
+		seg_num = 1
+		gain_num = []
+		loss_num = []
+		CNVs = []
+		present_ssms = []
+		lineage_num = 6
+		ssm_infl_cnv_same_lineage = []
+		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+			ssm_infl_cnv_same_lineage)
+		zmco = submarine.Z_Matrix_Co(z_matrix=z_matrix, triplet_xys=triplet_xys, triplet_ysx=triplet_ysx, triplet_xsy=triplet_xsy, present_ssms=present_ssms,
+			matrix_after_first_round=copy.deepcopy(z_matrix))
+
+		ppm_true = np.asarray([
+			[0, 0, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0, 0],
+			[0, 1, 0, 0, 0, 0],
+			[0, 0, 1, 0, 0, 0],
+			[0, 0, 0, 1, 0, 0],
+			[0, 1, 0, 0, 0, 0]
+			])
+
+		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
+
+		self.assertTrue((ppm == ppm_true).all())
 		
 
 	def test_get_all_possible_z_matrices_with_lineages_new(self):
