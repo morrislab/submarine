@@ -856,6 +856,21 @@ class ModelTest(unittest.TestCase):
 
 		self.assertEqual(output, "False, 1, 2, False, True\n")
 
+		# 3 lineages, no mutations, two valid Z-matrices with noise threshold possible
+		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.8], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2]
+		seg_num = 1
+
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
+			noise_threshold=0.1)
+
+		self.assertEqual(output, "True\n")
+		self.assertEqual(total_count, 2)
+		self.assertEqual(valid_count, 2)
+
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 
 	def test_create_ID_ordering_mapping(self):
@@ -1172,6 +1187,17 @@ class ModelTest(unittest.TestCase):
 		# different ppm
 		ppm = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]
 		self.assertFalse(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num))
+
+		# valid example with noise
+		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.7], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.7], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2]
+		z_matrix = [[-1, 1, 1], [-1, -1, -1], [-1, -1, -1]]
+		ppm = [[0, 0, 0], [1, 0, 0], [1, 0, 0]]
+		seg_num = 1
+
+		self.assertTrue(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, noise_threshold=0.4))
 
 
 	def test_get_definite_parents_available_frequencies(self):
@@ -1548,6 +1574,9 @@ class ModelTest(unittest.TestCase):
 		
 		lin1.freq[1] = 1
 		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix))
+
+		lin1.freq[1] = 0.8
+		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix, noise_threshold=0.2))
 
 	def test_change_unnecessary_phasing(self):
 

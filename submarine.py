@@ -20,7 +20,7 @@ from itertools import compress
 import json
 
 def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
-	test_reconstructions=False, analyze_ambiguity_during_runtime=False):
+	test_reconstructions=False, analyze_ambiguity_during_runtime=False, noise_threshold=0):
 	
 	z_matrix = np.asarray(z_matrix)
 
@@ -72,7 +72,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 
 	# checks whether given partial subclonal reconstruction is valid
 	if not is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage,
-		check_only_validity_possible=True):
+		check_only_validity_possible=True, noise_threshold=noise_threshold):
 		raise eo.ReconstructionInvalid("Reconstruction is invalid")
 
 	# testing whether function iterates correctly over all possible settings in Z-matrix
@@ -103,7 +103,8 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 				# update relationship in subclonal reconstruction to present
 				update_ancestry(1, undef_rels[i][K], undef_rels[i][KP], last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
 					linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
-					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
+					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
+					noise_threshold=noise_threshold)
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 				eo.RelationshipAlreadySet) as e:
@@ -121,7 +122,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 				# update relationship in subclonal reconstruction to absent
 				total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs)
+					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_threshold=noise_threshold)
 				undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is present
@@ -138,7 +139,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 			else:
 				sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 			total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs)
+				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_threshold=noise_threshold)
 			undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is absent
@@ -173,7 +174,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 				logging.info("Total count: {0}".format(total_count))
 
 			# check sum rule
-			if check_sum_rule(my_lineages, undef_rels[i][SBCLR].zmco.z_matrix):
+			if check_sum_rule(my_lineages, undef_rels[i][SBCLR].zmco.z_matrix, noise_threshold=noise_threshold):
 				valid_count += 1
 				if valid_count % 100 == 0:
 					logging.info("Valid count: {0}".format(valid_count))
@@ -232,13 +233,15 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	
 	return total_count, valid_count
 
-def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs):
+def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs,
+	noise_threshold=0):
 	undef_rels[i][REL] = value
 	# update relationship in subclonal reconstruction
 	try:
 		update_ancestry(value, k, kp, last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
 			linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
-			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms)
+			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
+			noise_threshold=noise_threshold)
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 		eo.RelationshipAlreadySet) as e:
@@ -301,7 +304,7 @@ def update_ancestry_w_preprocessing(my_lineages, z_matrix, ppm, seg_num, value, 
 
 # given a subclonal reconstruction with lineages, mutations, Z-matrix and possible parent matrix, check whether it is valid
 def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num=None, loss_num=None, CNVs=None, present_ssms=None,
-	ssm_infl_cnv_same_lineage=None, check_only_validity_possible=False):
+	ssm_infl_cnv_same_lineage=None, check_only_validity_possible=False, noise_threshold=0):
 	# get present mutations from lineages
 	lineage_num = len(my_lineages)
 	# go once through segment and get gains, losses and SSMs
@@ -346,7 +349,7 @@ def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num=None, 
 	frequencies = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	try:
 		sum_rule_worked, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
-			gain_num, loss_num, CNVs, present_ssms)
+			gain_num, loss_num, CNVs, present_ssms, noise_threshold=noise_threshold)
 	except eo.MyException as e:
 		return False
 
@@ -679,14 +682,14 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 
 		
 # given the lineages and a Z-matrix, checks whether the sum rule is fulfilled for all samples
-def check_sum_rule(my_lineages, z_matrix):
+def check_sum_rule(my_lineages, z_matrix, noise_threshold=0):
 	sample_size = len(my_lineages[0].freq)
 	# check all lineages that can have more than one child
 	for k in range(len(my_lineages)-2):
 		children = get_children(z_matrix, k)	
 		# check whether sum rule is fulfilled for all samples
 		for n in range(sample_size):
-			if my_lineages[k].freq[n] + cons.EPSILON_FREQUENCY < sum([my_lineages[kp].freq[n] for kp in children]):
+			if my_lineages[k].freq[n] + cons.EPSILON_FREQUENCY + noise_threshold < sum([my_lineages[kp].freq[n] for kp in children]):
 				return False
 	return True
 
