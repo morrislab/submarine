@@ -1287,9 +1287,9 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 			
 			try:
 				# copy objects so that the original stay unchanged during the Subpoplar try
-				zmco_double_copy = copy.deepcopy(zmco_copy)
+				zmco_double_copy = copy.deepcopy(zmco)
 				zero_count_double_copy = zero_count
-				present_ssms_double_copy = copy.deepcopy(present_ssms_copy)
+				present_ssms_double_copy = copy.deepcopy(present_ssms)
 
 				# do Subpoplar again, this time with new, smaller noise threshold
 				dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_double_copy, seg_num, zero_count_double_copy,
