@@ -3984,12 +3984,16 @@ if __name__ == '__main__':
     parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise threshold to which Subpoplar can be extended")
     parser.add_argument("--noise_threshold", default=0, type=float, help ="noise threshold with which Subpoplar starts")
-    parser.add_argument("--do_binary_search", action='store_true', help="whether lowest possible noise threshold should be found with binary search")
+    parser.add_argument("--take_first_threshold", action='store_true', help="doesn't search lowest possible noise threshold but takes first found one")
     args = parser.parse_args()
 
     allow_noise = False
     if args.allow_noise == True or args.noise_threshold > 0:
     	allow_noise = True
+
+    do_binary_search = True
+    if args.take_first_threshold == True:
+    	do_binary_search = False
 
     if args.dfs:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
@@ -3997,12 +4001,12 @@ if __name__ == '__main__':
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
 		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise,
-		do_binary_search=args.do_binary_search)
+		do_binary_search=do_binary_search)
     elif args.extended_version:
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
 		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise,
-		do_binary_search=args.do_binary_search)
+		do_binary_search=do_binary_search)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 
