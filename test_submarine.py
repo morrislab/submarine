@@ -212,7 +212,7 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
 
-		# example #5) that tests working with noise
+		# example #5) that tests working with noise, without binary search
 		freq_file = "testdata/unittests/frequencies5.csv"
 		cna_file = "testdata/unittests/cnas6.csv"
 		ssm_file = "testdata/unittests/ssms5.csv"
@@ -222,7 +222,22 @@ class ModelTest(unittest.TestCase):
 
 		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
-			allow_noise=True)
+			allow_noise=True, do_binary_search=False)
+
+		self.assertTrue((ppm == ppm_true).all())
+		self.assertEqual(ssm_phasing[0], [0, None])
+
+		# example #6) that tests working with noise, using binary search
+		freq_file = "testdata/unittests/frequencies5.csv"
+		cna_file = "testdata/unittests/cnas6.csv"
+		ssm_file = "testdata/unittests/ssms5.csv"
+		impact_file = "testdata/unittests/impact2.csv"
+
+		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
+			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
+			allow_noise=True, do_binary_search=True)
 
 		self.assertTrue((ppm == ppm_true).all())
 		self.assertEqual(ssm_phasing[0], [0, None])
@@ -948,7 +963,7 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 		# allows noise, given theshold is large enough (#2)
-		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_threshold=0.3)
+		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_threshold=0.3, do_binary_search=False)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])

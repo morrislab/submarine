@@ -1007,7 +1007,8 @@ def check_monotonicity(my_cnas):
 
 					
 def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_file=None, userZ_file=None, userSSM_file=None,
-		output_prefix=None, overwrite=False, use_logging=True, allow_noise=False, noise_threshold=0, maximal_noise=-1):
+		output_prefix=None, overwrite=False, use_logging=True, allow_noise=False, noise_threshold=0, maximal_noise=-1,
+		do_binary_search=True):
 
 	# check whether output files exist already
 	# create logging file
@@ -1084,9 +1085,10 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	zmco = zmcos[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms = outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, threshold_was_output = (
+			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
-			maximal_noise=maximal_noise)
+			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
@@ -1154,7 +1156,7 @@ def check_lost_alleles_for_basic(del_segments, my_ssms):
 	return True
 
 def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True, cna_file=None,
-	ssm_file=None, allow_noise=False, noise_threshold=0, maximal_noise=-1):
+	ssm_file=None, allow_noise=False, noise_threshold=0, maximal_noise=-1, do_binary_search=True):
 
 	# check whether output files exist already
 	# create logging file
@@ -1205,9 +1207,10 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], triplets_list)[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms = outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, threshold_was_output = (
+			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_threshold=noise_threshold,
-			maximal_noise=maximal_noise)
+			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
@@ -1238,12 +1241,15 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 
 # function to call Subpoplar/sum rule algorithm and that takes care of noise threshold
 def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-	allow_noise=False, noise_threshold=0, maximal_noise=-1):
+	allow_noise=False, noise_threshold=0, maximal_noise=-1, do_binary_search=True, 
+	threshold_difference=cons.THRESHOLD_DIFFERENCE, threshold_was_output=False):
 
 	# copy objects so that the original stay unchanged during the Subpoplar try
 	zmco_copy = copy.deepcopy(zmco)
 	zero_count_copy = zero_count
 	present_ssms_copy = copy.deepcopy(present_ssms)
+
+	old_noise_threshold = noise_threshold
 
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_copy, seg_num, zero_count_copy,
@@ -1265,14 +1271,56 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 				maximal_noise, noise_threshold))
 			raise e
 
-		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy = outer_subpoplar_w_noise(frequencies, zmco, seg_num, 
+		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, threshold_was_output = (
+			outer_subpoplar_w_noise(frequencies, zmco, seg_num, 
 			zero_count, gain_num, loss_num, CNVs, present_ssms,
-			allow_noise=allow_noise, noise_threshold=noise_threshold, maximal_noise=maximal_noise)
+			allow_noise=allow_noise, noise_threshold=noise_threshold, maximal_noise=maximal_noise,
+			threshold_was_output=threshold_was_output, do_binary_search=do_binary_search))
 
-	if allow_noise:
-		logging.info("Subpoplar finished with noise threshold of {0}.".format(noise_threshold))
+	# do a binary search to find a potentially lower threshold
+	if do_binary_search == True and allow_noise == True:
+		do_binary_search = False
 
-	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy
+		new_noise_threshold = noise_threshold / 2
+		interval_length = new_noise_threshold / 2
+		while (abs(old_noise_threshold - new_noise_threshold) > threshold_difference):
+			
+			try:
+				# copy objects so that the original stay unchanged during the Subpoplar try
+				zmco_double_copy = copy.deepcopy(zmco_copy)
+				zero_count_double_copy = zero_count
+				present_ssms_double_copy = copy.deepcopy(present_ssms_copy)
+
+				# do Subpoplar again, this time with new, smaller noise threshold
+				dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_double_copy, seg_num, zero_count_double_copy,
+					gain_num, loss_num, CNVs, present_ssms_double_copy, noise_threshold=new_noise_threshold)
+
+				# if Subpoplar was successful, delete variables of previous Subpoplar run and rename new ones
+				del zmco_copy, zero_count_copy, present_ssms_copy
+				zmco_copy = zmco_double_copy
+				zero_count_copy = zero_count_double_copy
+				present_ssms_copy = present_ssms_double_copy
+
+				# decrease theshold even more
+				old_noise_threshold = new_noise_threshold
+				new_noise_threshold = new_noise_threshold - interval_length
+
+			except eo.NoParentsLeftNoise as e:
+				del zmco_double_copy, zero_count_double_copy, present_ssms_double_copy
+
+				# increase noise threshold
+				new_noise_threshold = new_noise_threshold + interval_length
+
+			# decrease interval length
+			interval_length = interval_length / 2
+				
+	if allow_noise == True and threshold_was_output == False:
+		threshold_was_output = True
+		logging.info("Subpoplar finished with noise threshold of {0}.".format(old_noise_threshold))
+		if noise_threshold != old_noise_threshold:
+			logging.info("Binary search found a smaller threshold. First threshold was {0}.".format(noise_threshold))
+
+	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, threshold_was_output
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -3936,6 +3984,7 @@ if __name__ == '__main__':
     parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise threshold to which Subpoplar can be extended")
     parser.add_argument("--noise_threshold", default=0, type=float, help ="noise threshold with which Subpoplar starts")
+    parser.add_argument("--do_binary_search", action='store_true', help="whether lowest possible noise threshold should be found with binary search")
     args = parser.parse_args()
 
     allow_noise = False
@@ -3947,11 +3996,13 @@ if __name__ == '__main__':
                 cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
-		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise)
+		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise,
+		do_binary_search=args.do_binary_search)
     elif args.extended_version:
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
-		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise)
+		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_threshold=args.noise_threshold, maximal_noise=args.maximal_noise,
+		do_binary_search=args.do_binary_search)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 
