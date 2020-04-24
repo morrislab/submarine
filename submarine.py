@@ -68,7 +68,8 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 		# get definite parents and available frequencies
 		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
-	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs)
+	initial_pps_for_all = build_initial_pps_for_all(ppm)
+	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs, initial_pps_for_all)
 
 	# checks whether given partial subclonal reconstruction is valid
 	if not is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage,
@@ -241,7 +242,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 		update_ancestry(value, k, kp, last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
 			linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
-			noise_threshold=noise_threshold)
+			noise_threshold=noise_threshold, initial_pps_for_all=sbclr.initial_pps_for_all)
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 		eo.RelationshipAlreadySet) as e:
@@ -1622,6 +1623,15 @@ def get_all_possible_z_matrices_with_lineages_new(my_lineages, seg_num, user_z=N
 	my_lineages = create_updates_lineages(my_lineages, 0, [zmco.z_matrix], origin_present_ssms, [zmco.present_ssms])
 
 	return my_lineages, zmco.z_matrix, avFreqs, ppm
+
+# function needed when doing the DFS
+def build_initial_pps_for_all(ppm):
+	lin_num = len(ppm)
+	initial_pps_for_all = [-1] * lin_num
+	for k in range(1, lin_num):
+		possible_parents = np.where(ppm[k] == 1)[0]
+		initial_pps_for_all[k] = possible_parents
+	return initial_pps_for_all
 
 # new sum rule algorithm (October 2019)
 # processes each lineage and looks whether lineage has only one possible parent, this than becomes the
@@ -3959,12 +3969,13 @@ class Z_Matrix_Co(object):
 
 class Subclonal_Reconstruction_for_DFS(object):
 
-	def __init__(self, zmco, present_ssms, ppm, defparent, avFreqs):
+	def __init__(self, zmco, present_ssms, ppm, defparent, avFreqs, initial_pps_for_all):
 		self.zmco = zmco
 		self.present_ssms = present_ssms
 		self.ppm = ppm
 		self.defparent = defparent
 		self.avFreqs = avFreqs
+		self.initial_pps_for_all = initial_pps_for_all
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
