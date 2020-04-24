@@ -106,7 +106,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 				update_ancestry(1, undef_rels[i][K], undef_rels[i][KP], last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
 					linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
-					noise_threshold=noise_threshold)
+					noise_threshold=noise_threshold, initial_pps_for_all=sbclr.initial_pps_for_all)
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 				eo.RelationshipAlreadySet) as e:
