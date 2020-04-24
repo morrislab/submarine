@@ -63,12 +63,13 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	defparent = None
 	avFreqs = None
 	linFreqs = None
+	initial_pps_for_all = None
 	if ppm is not None:
 		last = lin_num - 1
 		# get definite parents and available frequencies
 		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
-	initial_pps_for_all = build_initial_pps_for_all(ppm)
+		initial_pps_for_all = build_initial_pps_for_all(ppm)
 	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs, initial_pps_for_all)
 
 	# checks whether given partial subclonal reconstruction is valid
