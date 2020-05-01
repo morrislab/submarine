@@ -102,6 +102,12 @@ python3 submarine.py --extended_version --freq_file submarine_example/frequencie
   --userSSM_file submarine_example/userSSM3.csv --output_prefix submarine_example/my_test_extended
 ```
 
+To run SubMARine allowing a noise buffer, add `--allow_noise` to your command, e.g.:
+```
+python3 submarine.py --basic_version --freq_file submarine_example/frequencies4.csv 
+  --allow_noise --output_prefix submarine_example/my_test_noise
+```
+
 To start the depth-first search, type:
 ```
 python3 submarine.py --dfs --possible_parent_file submarine_example/my_test_extended.pospars 
