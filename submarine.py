@@ -1090,7 +1090,7 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	zmco = zmcos[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, threshold_was_output = (
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, buffer_was_output = (
 			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
@@ -1212,7 +1212,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], triplets_list)[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, threshold_was_output = (
+		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, buffer_was_output = (
 			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
@@ -1244,10 +1244,10 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 
 	return my_lins, z_matrix_for_output, avFreqs, ppm
 
-# function to call Subpoplar/sum rule algorithm and that takes care of noise threshold
+# function to call Subpoplar/sum rule algorithm and that takes care of noise buffer
 def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
 	allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, 
-	threshold_difference=cons.THRESHOLD_DIFFERENCE, threshold_was_output=False):
+	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False):
 
 	# copy objects so that the original stay unchanged during the Subpoplar try
 	zmco_copy = copy.deepcopy(zmco)
@@ -1259,7 +1259,7 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 	try:
 		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_copy, seg_num, zero_count_copy,
 			gain_num, loss_num, CNVs, present_ssms_copy, noise_buffer=noise_buffer)
-	# noise threshold was reached
+	# noise buffer was reached
 	# check whether it can be decreased, then do Subpoplar again
 	except eo.NoParentsLeftNoise as e:
 		del zmco_copy, zero_count_copy, present_ssms_copy
@@ -1268,27 +1268,27 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 		if allow_noise == False:
 			raise e
 
-		# compute new noise threshold
+		# compute new noise buffer
 		noise_buffer = compute_minimal_noise_buffer(e.k, frequencies, e.avFreqs_from_initial_pps)
-		# if noise threshold is too high, raise error
+		# if noise buffer is too high, raise error
 		if maximal_noise > 0 and noise_buffer > maximal_noise + cons.EPSILON_FREQUENCY:
-			logging.warning("Allowed noise threshold of {0} is smaller than necessary noise thresholf of {1}.".format(
+			logging.warning("Allowed noise buffer of {0} is smaller than necessary noise thresholf of {1}.".format(
 				maximal_noise, noise_buffer))
 			raise e
 
-		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, threshold_was_output = (
+		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, buffer_was_output = (
 			outer_subpoplar_w_noise(frequencies, zmco, seg_num, 
 			zero_count, gain_num, loss_num, CNVs, present_ssms,
 			allow_noise=allow_noise, noise_buffer=noise_buffer, maximal_noise=maximal_noise,
-			threshold_was_output=threshold_was_output, do_binary_search=do_binary_search))
+			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search))
 
-	# do a binary search to find a potentially lower threshold
+	# do a binary search to find a potentially lower buffer
 	if do_binary_search == True and allow_noise == True:
 		do_binary_search = False
 
 		new_noise_buffer = noise_buffer / 2
 		interval_length = new_noise_buffer / 2
-		while (abs(old_noise_buffer - new_noise_buffer) > threshold_difference):
+		while (abs(old_noise_buffer - new_noise_buffer) > buffer_difference):
 			
 			try:
 				# copy objects so that the original stay unchanged during the Subpoplar try
@@ -1296,7 +1296,7 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 				zero_count_double_copy = zero_count
 				present_ssms_double_copy = copy.deepcopy(present_ssms)
 
-				# do Subpoplar again, this time with new, smaller noise threshold
+				# do Subpoplar again, this time with new, smaller noise buffer
 				dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_double_copy, seg_num, zero_count_double_copy,
 					gain_num, loss_num, CNVs, present_ssms_double_copy, noise_buffer=new_noise_buffer)
 
@@ -1313,19 +1313,19 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 			except eo.NoParentsLeftNoise as e:
 				del zmco_double_copy, zero_count_double_copy, present_ssms_double_copy
 
-				# increase noise threshold
+				# increase noise buffer
 				new_noise_buffer = new_noise_buffer + interval_length
 
 			# decrease interval length
 			interval_length = interval_length / 2
 				
-	if allow_noise == True and threshold_was_output == False:
-		threshold_was_output = True
-		logging.info("Subpoplar finished with noise threshold of {0}.".format(old_noise_buffer))
+	if allow_noise == True and buffer_was_output == False:
+		buffer_was_output = True
+		logging.info("Subpoplar finished with noise buffer of {0}.".format(old_noise_buffer))
 		if noise_buffer != old_noise_buffer:
-			logging.info("Binary search found a smaller threshold. First threshold was {0}.".format(noise_buffer))
+			logging.info("Binary search found a smaller buffer. First buffer was {0}.".format(noise_buffer))
 
-	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, threshold_was_output
+	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, buffer_was_output
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -1780,7 +1780,7 @@ def compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps):
 	diff_freq = avFreqs_from_initial_pps - linFreqs[k]
 	# for each possible parent, the most negative value is taken
 	max_diffs = np.amin(diff_freq, axis=1) * (-1)
-	# minimal noise threshold is chosen
+	# minimal noise buffer is chosen
 	minimal_noise_buffer = np.min(max_diffs)
 
 	return minimal_noise_buffer
@@ -3997,9 +3997,9 @@ if __name__ == '__main__':
     parser.add_argument("--basic_version", action='store_true', help="starts basic version")
     parser.add_argument("--extended_version", action='store_true', help="starts extended version")
     parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
-    parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise threshold to which Subpoplar can be extended")
-    parser.add_argument("--noise_buffer", default=0, type=float, help ="noise threshold with which Subpoplar starts")
-    parser.add_argument("--take_first_threshold", action='store_true', help="doesn't search lowest possible noise threshold but takes first found one")
+    parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise buffer to which Subpoplar can be extended")
+    parser.add_argument("--noise_buffer", default=0, type=float, help ="noise buffer with which Subpoplar starts")
+    parser.add_argument("--take_first_buffer", action='store_true', help="doesn't search lowest possible noise buffer but takes first found one")
     args = parser.parse_args()
 
     allow_noise = False
@@ -4007,7 +4007,7 @@ if __name__ == '__main__':
     	allow_noise = True
 
     do_binary_search = True
-    if args.take_first_threshold == True:
+    if args.take_first_buffer == True:
     	do_binary_search = False
 
     if args.dfs:
