@@ -79,6 +79,16 @@ For each SSM, the following information is given: the subclone it is assigned to
 
 For each CNA, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), its own index (`index`) and its relative copy number change (`change`). The other information (`start`, `chr`, `end`) are not needed in the context of SubMARine and are thus set to `-1`.
 
+## Output files of depth-first search
+
+We provide a depth-first search that enumerates all valid and equivalent clone trees completing a clone tree. It produces the following three output files.
+
+`<my_file_name>.dfs.log`: A log file containing information about how many trees were considered and how many are valid.
+
+`<my_file_name>.valid_count.txt`: A text file containing the number of valid trees.
+
+`<my_file_name>.ambiguity.txt`: A text file with an analysis of undefined ancestral relationships in the partial clone tree. If the partial clone tree contains no undefined relationships, the text file reads `All ancestral relationships are defined.`. Otherwise, if the MAR was provided as input or if the provided subMAR equals its MAR, the text file reads `True` because all undefined relationships are truely ambiguous. Otherwise the text file provides an analysis of all undefined relationships that take only one defined value in all valid and equivalent clone trees in the following format: `False \t subclone k \t subclone k' \t whether k is an ancestor of k' (with 1 for yes and 0 for no) \t whether k is not an ancestor of k' (with 1 for yes and 0 for no)`
+
 ## Running SubMARine
 
 To run SubMARine on the provided test files in basic version, type:
