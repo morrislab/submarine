@@ -14,27 +14,27 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
-	def test_compute_minimal_noise_threshold(self):
+	def test_compute_minimal_noise_buffer(self):
 
 		k = 3
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.4, 0.75]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
 
-		self.assertEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.55)
+		self.assertEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.55)
 
 		# other example
 		k = 3
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.7, 0.75]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
 
-		self.assertEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.6)
+		self.assertEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.6)
 
 		# other example
 		k = 3
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.6, 0.7], [0.7, 0.3]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.3, 0.1]])
 
-		self.assertAlmostEqual(submarine.compute_minimal_noise_threshold(k, linFreqs, avFreqs_from_initial_pps), 0.4)
+		self.assertAlmostEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.4)
 
 
 	def test_get_possible_parents_from_ppmatrix(self):
@@ -865,7 +865,7 @@ class ModelTest(unittest.TestCase):
 		seg_num = 1
 
 		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
-			noise_threshold=0.1)
+			noise_buffer=0.1)
 
 		self.assertEqual(output, "True\n")
 		self.assertEqual(total_count, 2)
@@ -978,7 +978,7 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 		# allows noise, given theshold is large enough (#2)
-		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_threshold=0.3, do_binary_search=False)
+		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_buffer=0.3, do_binary_search=False)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
@@ -1197,7 +1197,7 @@ class ModelTest(unittest.TestCase):
 		ppm = [[0, 0, 0], [1, 0, 0], [1, 0, 0]]
 		seg_num = 1
 
-		self.assertTrue(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, noise_threshold=0.4))
+		self.assertTrue(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, noise_buffer=0.4))
 
 
 	def test_get_definite_parents_available_frequencies(self):
@@ -1576,7 +1576,7 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix))
 
 		lin1.freq[1] = 0.8
-		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix, noise_threshold=0.2))
+		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix, noise_buffer=0.2))
 
 	def test_change_unnecessary_phasing(self):
 
@@ -1889,7 +1889,7 @@ class ModelTest(unittest.TestCase):
 		new_z = z_matrix = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_threshold=0.2)
+			noise_buffer=0.2)
 		self.assertTrue(mybool)
 		self.assertTrue(np.array_equal(np.asarray(ppm_true), ppm))
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
@@ -2386,7 +2386,7 @@ class ModelTest(unittest.TestCase):
 		avFreqs_true = np.asarray([[-0.2], [1.0], [0.2]])
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_threshold=0.2)
+			noise_buffer=0.2)
 
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
@@ -2416,7 +2416,7 @@ class ModelTest(unittest.TestCase):
 		avFreqs_true = np.asarray([[0], [1.0], [0.2]])
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_threshold=0.2)
+			noise_buffer=0.2)
 
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
