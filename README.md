@@ -6,7 +6,7 @@ The subMAR is a partial clone tree that represents all valid clone trees fitting
 The possible parent matrix indicates the possible parents of each clone subclone.
 Additionally, SSMs and clonal CNAs can be provided as input.
 The extended version can also work with subclonal CNAs.
-Here, SubMARine needs a subclonal frequency matrix, CNAs as copy number changes assigned to subclones, segments and parental alleles, SSMs assigned to segments and subclones, and an impact matrix, which indicates which CNAs change the mutant copy numbers of which SSMs, as input.
+Here, SubMARine needs as input a subclonal frequency matrix, CNAs as copy number changes assigned to subclones, segments and parental alleles, SSMs assigned to segments and subclones, and an impact matrix, which indicates which CNAs change the mutant copy numbers of which SSMs.
 SubMARine than reconstructs the extended subMAR, a partial clone tree with SSM phasing that represents all valid and equivalent clone trees fitting the input data, together with a possible parent matrix.
 
 ## Input files
@@ -25,7 +25,7 @@ Note that the germline is not part of this frequency file.
 
 `cna_file`:
 This file shows the assignment of CNAs to segments, subclones and phases. Furthermore, it indicates the type of the CNA.
-* `CNA_index`: index of CNA, must consecutive, starting at `0`
+* `CNA_index`: index of CNA, must be consecutive, starting at `0`
 * `seg_index`: segment index of CNA
 * `subclone_ID`: ID of subclone the CNA is assigned to
 * `phase`: allele the CNA is assigned to, can either be `A` or `B`
@@ -33,7 +33,7 @@ This file shows the assignment of CNAs to segments, subclones and phases. Furthe
 
 `ssm_file`:
 This file shows the assignment of SSMs to segments and subclones. 
-* `SSM_index`: index of SSM, must consecutive, starting at `0`
+* `SSM_index`: index of SSM, must be consecutive, starting at `0`
 * `seg_index`: segment index of SSM
 * `subclone_ID`: ID of subclone the SSM is assigned to
 
@@ -52,7 +52,7 @@ This file can be provided by the user and indicates which ancestor-descendant re
 * `relationship`: whether the first subclone should be an ancestor or the second subclone, shown as `1`, or not, shown as `0`
 
 `userSSM_file`:
-This file can be provided by the user and indicates for which SSMs the phasing cannot be changed by SubMARine. Note that SSMs of one segment and phase of a lineage can be addressed only as whole and not individually.
+This file can be provided by the user and indicates for which SSMs the phasing cannot be changed by SubMARine.
 * `SSM_index`: index of SSMs whose phase should not be changed
 * `phase`: phase of SSMs that should not be changed, can either be `A` or `B`
 
@@ -87,7 +87,7 @@ python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.
   --userZ_file submarine_example/userZ.csv --output_prefix submarine_example/my_test_basic 
 ```
 
-To run SubMARine on the provided test files in basix version with SSMs and clonal CNAs, type:
+To run SubMARine on the provided test files in basic version with SSMs and clonal CNAs, type:
 ```
 python3 submarine.py --basic_version --freq_file submarine_example/frequencies2.csv 
   --userZ_file submarine_example/userZ.csv --cna_file submarine_example/cnas4.csv 
@@ -102,7 +102,7 @@ python3 submarine.py --extended_version --freq_file submarine_example/frequencie
   --userSSM_file submarine_example/userSSM3.csv --output_prefix submarine_example/my_test_extended
 ```
 
-To start the depth-first search type:
+To start the depth-first search, type:
 ```
 python3 submarine.py --dfs --possible_parent_file submarine_example/my_test_extended.pospars 
   --z_matrix_file submarine_example/my_test_extended.zmatrix 
