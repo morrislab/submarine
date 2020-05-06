@@ -830,7 +830,8 @@ def set_z_user_constraints(z_matrix, user_z):
 				if user_z[k][kp] != 0:
 					z_matrix[k][kp] = user_z[k][kp]
 
-def check_overwrite_logging_lineages_Z_constraints(overwrite=None, output_prefix=None, use_logging=None, freq_file=None, userZ_file=None):
+def check_overwrite_logging_lineages_Z_constraints(overwrite=None, output_prefix=None, use_logging=None, freq_file=None, userZ_file=None,
+	direct_freqs=None, normal_freq_present=False):
 	# check whether output files exist already
 	if check_overwrite(overwrite, output_prefix) == False:
 		return
@@ -845,7 +846,7 @@ def check_overwrite_logging_lineages_Z_constraints(overwrite=None, output_prefix
 	logging.info("Parsing input information.")
 
 	# create lineage object list
-	my_lins, sorting_id_mapping = get_lineages_from_freqs(freq_file)
+	my_lins, sorting_id_mapping = get_lineages_from_freqs(freq_file=freq_file, freqs=direct_freqs, normal_freq_present=normal_freq_present)
 	lin_num = len(my_lins)
 
 	# get user constraints
@@ -1013,14 +1014,15 @@ def check_monotonicity(my_cnas):
 					
 def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_file=None, userZ_file=None, userSSM_file=None,
 		output_prefix=None, overwrite=False, use_logging=True, allow_noise=False, noise_buffer=0, maximal_noise=-1,
-		do_binary_search=True):
+		do_binary_search=True, direct_freqs=None, normal_freq_present=False):
 
 	# check whether output files exist already
 	# create logging file
 	# create lineage object list
 	# get user constraints
 	my_lins, sorting_id_mapping, lin_num, user_z = check_overwrite_logging_lineages_Z_constraints(overwrite=overwrite, 
-		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file)
+		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file,
+		direct_freqs=direct_freqs, normal_freq_present=normal_freq_present)
 
 	# read CNA file and assign CNAs
 	my_cnas = oio.read_cnas(cna_file, sorting_id_mapping=sorting_id_mapping, use_cna_indices=True, lin_num=lin_num)
@@ -1161,14 +1163,16 @@ def check_lost_alleles_for_basic(del_segments, my_ssms):
 	return True
 
 def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True, cna_file=None,
-	ssm_file=None, allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True):
+	ssm_file=None, allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, direct_freqs=None,
+	normal_freq_present=False):
 
 	# check whether output files exist already
 	# create logging file
 	# create lineage object list
 	# get user constraints
 	my_lins, sorting_id_mapping, lin_num, user_z = check_overwrite_logging_lineages_Z_constraints(overwrite=overwrite, 
-		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file)
+		output_prefix=output_prefix, use_logging=use_logging, freq_file=freq_file, userZ_file=userZ_file,
+		direct_freqs=direct_freqs, normal_freq_present=normal_freq_present)
 
 	if cna_file is not None:
 		logging.info("Preprocessing whether lost allele constraint is satisfied.")
@@ -1402,7 +1406,7 @@ def convert_zmatrix_for_internal_use(z_matrix):
 				z_matrix[k][k2] = 0
 
 # given the lineage frequencies, create a lineage object list
-def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=None, lin_ids=None):
+def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=None, lin_ids=None, normal_freq_present=False):
 	
 	logging.info("Sorting subclones according to average frequencies.")
 
@@ -1411,10 +1415,23 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 		freqs, lin_ids = oio.read_frequencies(freq_file, ordering_given=False, return_ids=True)
 		freq_num = len(freqs[0])
 		lin_num = len(freqs) + 1
+	else:
+		if freq_num is None:
+			freq_num = len(freqs[0])
+		if lin_num is None:
+			if normal_freq_present == True:
+				lin_num = len(freqs)
+			else:
+				lin_num = len(freqs) + 1
+		if lin_ids is None:
+			lin_ids = [x for x in range(lin_num)]
 	
 	# sort frequencies according to average frequency
 	# get average of list
-	av_freqs = [np.average(freqs[i]) for i in range(lin_num-1)]
+	if normal_freq_present == False:
+		av_freqs = [np.average(freqs[i]) for i in range(lin_num-1)]
+	else:
+		av_freqs = [np.average(freqs[i]) for i in range(lin_num)]
 	# indices of argsort
 	sorted_indices = np.flip(np.argsort(av_freqs), 0)
 	# check whether multiple lineages with same average frequencies exist
@@ -1450,20 +1467,33 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 	#	i = next_lin
 
 	# create mapping between ordering and IDs
-	mapping = create_ID_ordering_mapping(sorted_indices, lin_ids)
+	# if frequency file is given, frequency of germline is not given here
+	if freq_file is not None:
+		mapping = create_ID_ordering_mapping(sorted_indices, lin_ids, normal_freq_present=False)
+	# if no frequency file is given, frequency of germline can be present or not
+	else:
+		mapping = create_ID_ordering_mapping(sorted_indices, lin_ids, normal_freq_present=normal_freq_present)
 
 	# create lineages
-	normal_lineage = lineage.Lineage([i for i in range(1, lin_num)], [1.0] * freq_num, [], [], [], [], [], [], [], [])
-	other_lineages = [lineage.Lineage([], freqs[sorted_indices[i]], [], [], [], [], [], [], [], [])
-		for i in range(lin_num-1)]
+	if normal_freq_present == False:
+		normal_lineage = lineage.Lineage([i for i in range(1, lin_num)], [1.0] * freq_num, [], [], [], [], [], [], [], [])
+		other_lineages = [lineage.Lineage([], freqs[sorted_indices[i]], [], [], [], [], [], [], [], [])
+			for i in range(lin_num-1)]
+		my_lineages = [normal_lineage] + other_lineages
+	else:
+		my_lineages = [lineage.Lineage([], freqs[sorted_indices[i]], [], [], [], [], [], [], [], [])
+			for i in range(lin_num)]
 
-	return [normal_lineage] + other_lineages, mapping
+	return my_lineages, mapping
 
 # creates a mapping between IDs of lineages and ordering according to their frequencies
-def create_ID_ordering_mapping(sorted_indices, lin_ids):
+def create_ID_ordering_mapping(sorted_indices, lin_ids, normal_freq_present=False):
 	mapping = {}
 	output_message = ["Subclone index to ID mapping: 0->germline"]
-	for i in range(len(sorted_indices)):
+	start_range = 0
+	if normal_freq_present == True:
+		start_range = 1
+	for i in range(start_range, len(sorted_indices)):
 		my_key = lin_ids[sorted_indices[i]]
 		try:
 			# this statement either throws a KeyError or a TypeError

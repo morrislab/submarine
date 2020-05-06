@@ -1067,6 +1067,24 @@ class ModelTest(unittest.TestCase):
 
 		self.assertEqual(3, len(lins))
 
+		# sorting needed, only freqs given, normal one not present
+		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1]]
+
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, normal_freq_present=False)
+		self.assertEqual(lins[1].freq, [1.0, 1.0])
+		self.assertEqual(lins[2].freq, [1.0, 0.8])
+		self.assertEqual(lins[3].freq, [0.9, 0.1])
+		self.assertEqual(lins[4].freq, [0.8, 0.1])
+
+		# sorting needed, only freqs given, normal one present
+		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1], [1, 1]]
+
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, normal_freq_present=True)
+		self.assertEqual(lins[1].freq, [1.0, 1.0])
+		self.assertEqual(lins[2].freq, [1.0, 0.8])
+		self.assertEqual(lins[3].freq, [0.9, 0.1])
+		self.assertEqual(lins[4].freq, [0.8, 0.1])
+
 
 	def test_convert_zmatrix_for_internal_use(self):
 
