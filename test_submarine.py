@@ -14,6 +14,71 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_combine_different_submars(self):
+
+		# use uniform automatically, new format
+		submar1 = np.asarray([[0, 1, 1], [0, 0, 1], [0, 0, 0]])
+		submar2 = np.asarray([[0, 1, 1], [0, 0, -1], [0, 0, 0]])
+		submars = [submar1, submar2]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.75], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars)
+
+		self.assertTrue((new_submar == m_submar).all())
+
+		# use uniform automatically, old format
+		submar1 = np.asarray([[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]])
+		submar2 = np.asarray([[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]])
+		submars = [submar1, submar2]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.75], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars)
+
+		self.assertTrue((new_submar == m_submar).all())
+
+		# use uniform, new format
+		submar1 = np.asarray([[0, 1, 1], [0, 0, 1], [0, 0, 0]])
+		submar2 = np.asarray([[0, 1, 1], [0, 0, -1], [0, 0, 0]])
+		submars = [submar1, submar2]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.75], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars, uniform=True)
+
+		self.assertTrue((new_submar == m_submar).all())
+
+		# use coeffs, new format
+		submar1 = np.asarray([[0, 1, 1], [0, 0, 1], [0, 0, 0]])
+		submar2 = np.asarray([[0, 1, 1], [0, 0, -1], [0, 0, 0]])
+		submars = [submar1, submar2]
+		coeffs = [0.9, 0.1]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.95], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars, coeffs=coeffs)
+
+		self.assertTrue(np.isclose(new_submar, m_submar).all())
+
+		# use coeffs with scaling, new format
+		submar1 = np.asarray([[0, 1, 1], [0, 0, 1], [0, 0, 0]])
+		submar2 = np.asarray([[0, 1, 1], [0, 0, -1], [0, 0, 0]])
+		submars = [submar1, submar2]
+		coeffs = [1.8, 0.2]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.95], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars, coeffs=coeffs)
+
+		self.assertTrue(np.isclose(new_submar, m_submar).all())
+
+		# use uniform, new format, but submars are list not array
+		submar1 = [[0, 1, 1], [0, 0, 1], [0, 0, 0]]
+		submar2 = [[0, 1, 1], [0, 0, -1], [0, 0, 0]]
+		submars = [submar1, submar2]
+		new_submar = np.asarray([[0, 1, 1], [0, 0, 0.75], [0, 0, 0]])
+		
+		m_submar = submarine.combine_different_submars(submars, uniform=True)
+
+		self.assertTrue((new_submar == m_submar).all())
+
+
 	def test_compute_minimal_noise_buffer(self):
 
 		k = 3

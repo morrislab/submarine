@@ -19,6 +19,39 @@ import copy
 from itertools import compress
 import json
 
+def combine_different_submars(submars, coeffs=[], uniform=False):
+	submar_num = len(submars)
+
+	# check that right format is used, no relationship expressed with value 0
+	if submars[0][0][0] == -1:
+		[convert_zmatrix_to_presentation_mode(submars[i]) for i in range(submar_num)]
+	# convert array to contain floats
+	try:
+		submars = [submars[i].astype('float64') for i in range(submar_num)]
+	except AttributeError:
+		submars = [np.asarray(submars[i]).astype('float64') for i in range(submar_num)]
+	# convert ambiguous entries to 0.5
+	[convert_ambiguous_to_zpf(submars[i]) for i in range(submar_num)]
+
+	# check coefficients
+	# if no information is given, weights are uniformly distributed
+	if uniform == False and coeffs == []:
+		uniform = True
+	# compute uniform coefficients
+	if uniform == True:
+		coeffs = [1/submar_num] * submar_num
+	# take care that coeffs are scaled
+	else:
+		coeffs_sum = sum(coeffs)
+		if coeffs_sum != 1:
+			coeffs = [coeffs[i]/float(coeffs_sum) for i in range(submar_num)]
+	# multiply coefficients
+	submars = [submars[i] * coeffs[i] for i in range(submar_num)]
+	# sum and take average
+	av_submar = np.sum(submars, axis=0)
+
+	return av_submar
+
 def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
 	test_reconstructions=False, analyze_ambiguity_during_runtime=False, noise_buffer=0):
 	
@@ -1404,6 +1437,30 @@ def convert_zmatrix_for_internal_use(z_matrix):
 				z_matrix[k][k2] = 0
 			elif z_matrix[k][k2] == -1:
 				z_matrix[k][k2] = 0
+
+# in new presentation mode a 0 means no relationship and a -1 means an ambiguous relationship
+def convert_zmatrix_to_presentation_mode(z_matrix):
+	assert z_matrix[0][0] == -1
+	lin_num = len(z_matrix)
+	for k in range(lin_num):
+		for k2 in range(lin_num):
+			if z_matrix[k][k2] == -1:
+				z_matrix[k][k2] = 0
+			elif z_matrix[k][k2] == 0:
+				z_matrix[k][k2] = -1
+			elif z_matrix[k][k2] == 1:
+				pass
+			else:
+				raise eo.MyException("Unknown value in Z-matrix.")
+
+# converts the ambiguous entries of -1 to 0.5
+def convert_ambiguous_to_zpf(z_matrix):
+	assert z_matrix[0][0] == 0
+	lin_num = len(z_matrix)
+	for k in range(lin_num):
+		for k2 in range(k+1, lin_num):
+			if z_matrix[k][k2] == -1:
+				z_matrix[k][k2] = 0.5
 
 # given the lineage frequencies, create a lineage object list
 def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=None, lin_ids=None, normal_freq_present=False):
