@@ -1540,6 +1540,7 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 	else:
 		my_lineages = [lineage.Lineage([], freqs[sorted_indices[i]], [], [], [], [], [], [], [], [])
 			for i in range(lin_num)]
+		my_lineages[0].sublins = [i for i in range(1, lin_num)]
 
 	return my_lineages, mapping
 

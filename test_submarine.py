@@ -1149,6 +1149,7 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(lins[2].freq, [1.0, 0.8])
 		self.assertEqual(lins[3].freq, [0.9, 0.1])
 		self.assertEqual(lins[4].freq, [0.8, 0.1])
+		self.assertEqual(lins[0].sublins, [1, 2, 3, 4])
 
 
 	def test_convert_zmatrix_for_internal_use(self):
