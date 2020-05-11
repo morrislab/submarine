@@ -19,6 +19,25 @@ import copy
 from itertools import compress
 import json
 
+def reorder_matrix_according_to_mapping(my_matrix, mapping):
+	lin_num = len(my_matrix)
+	new_matrix = np.zeros(lin_num*lin_num).reshape(lin_num, lin_num)
+
+	for k in range(lin_num):
+		for kp in range(lin_num):
+			try:
+				new_matrix[k][kp] = my_matrix[mapping[k]][mapping[kp]]
+			# possible that mapping doesn't contain the germline
+			except KeyError:
+				if k == 0 and kp == 0:
+					new_matrix[k][kp] = my_matrix[k][kp]
+				elif k == 0:
+					new_matrix[k][kp] = my_matrix[k][mapping[kp]]
+				elif kp == 0:
+					new_matrix[k][kp] = my_matrix[mapping[k]][kp]
+
+	return new_matrix
+
 def combine_different_submars(submars, coeffs=[], uniform=False, use_ppm=False):
 	submar_num = len(submars)
 

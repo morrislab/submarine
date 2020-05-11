@@ -14,6 +14,47 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_reorder_matrix_according_to_mapping(self):
+
+		# small example
+		my_matrix = [[0, 1, 1, 1], [0, 0, 0, 1], [0, 0, 0, -1], [0, 0, 0, 0]]
+		mapping = {0:0, 1:1, 3:2, 2:3}
+		new_matrix = np.asarray([[0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, -1, 0]])
+
+		self.assertTrue((submarine.reorder_matrix_according_to_mapping(my_matrix, mapping) == new_matrix).all())
+
+		# larger example
+		my_matrix = [[0, 1, 1, 1, 1, 1],
+			[0, 0, 0, 1, 0, -1],
+			[0, 0, 0, 1, -1, 0],
+			[0, 0, 0, 0, 0, 1],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0]]
+		mapping = {0:0, 5:1, 3:2, 4:3, 1:4, 2:5}
+		new_matrix = np.asarray([
+			[0, 1, 1, 1, 1, 1],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+			[0, -1, 0, 0, 1, 0],
+			[0, 0, 1, 0, 0, 0],
+			[0, 0, -1, 0, 1, 0]])
+
+		self.assertTrue((submarine.reorder_matrix_according_to_mapping(my_matrix, mapping) == new_matrix).all())
+
+		# small example without germline
+		my_matrix = [[0, 1, 1, 1], [0, 0, 0, 1], [0, 0, 0, -1], [0, 0, 0, 0]]
+		mapping = {1:1, 3:2, 2:3}
+		new_matrix = np.asarray([[0, 1, 1, 1], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, -1, 0]])
+
+		self.assertTrue((submarine.reorder_matrix_according_to_mapping(my_matrix, mapping) == new_matrix).all())
+
+		# ppm
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0]]
+		mapping = {0:0, 3:1, 1:2, 2:3}
+		new_ppm = np.asarray([[0, 0, 0, 0], [1, 0, 0, 1], [0, 1, 0, 0], [1, 0, 0, 0]])
+
+		self.assertTrue((submarine.reorder_matrix_according_to_mapping(ppm, mapping) == new_ppm).all())
+
 	def test_combine_different_submars(self):
 
 		# use uniform automatically, new format
