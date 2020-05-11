@@ -78,6 +78,15 @@ class ModelTest(unittest.TestCase):
 
 		self.assertTrue((new_submar == m_submar).all())
 
+		# use ppm, uniform
+		ppm1 = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0]]
+		ppm2 = [[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0]]
+		ppms = [ppm1, ppm2]
+		new_ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [0.5, 1, 0, 0], [0, 1, 0.5, 0]]
+
+		m_ppm = submarine.combine_different_submars(ppms, use_ppm=True)
+
+		self.assertTrue(new_ppm, m_ppm)
 
 	def test_compute_minimal_noise_buffer(self):
 

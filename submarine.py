@@ -19,11 +19,11 @@ import copy
 from itertools import compress
 import json
 
-def combine_different_submars(submars, coeffs=[], uniform=False):
+def combine_different_submars(submars, coeffs=[], uniform=False, use_ppm=False):
 	submar_num = len(submars)
 
 	# check that right format is used, no relationship expressed with value 0
-	if submars[0][0][0] == -1:
+	if use_ppm == False and submars[0][0][0] == -1:
 		[convert_zmatrix_to_presentation_mode(submars[i]) for i in range(submar_num)]
 	# convert array to contain floats
 	try:
@@ -31,7 +31,8 @@ def combine_different_submars(submars, coeffs=[], uniform=False):
 	except AttributeError:
 		submars = [np.asarray(submars[i]).astype('float64') for i in range(submar_num)]
 	# convert ambiguous entries to 0.5
-	[convert_ambiguous_to_zpf(submars[i]) for i in range(submar_num)]
+	if use_ppm == False:
+		[convert_ambiguous_to_zpf(submars[i]) for i in range(submar_num)]
 
 	# check coefficients
 	# if no information is given, weights are uniformly distributed
