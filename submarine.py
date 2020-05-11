@@ -1550,19 +1550,21 @@ def create_ID_ordering_mapping(sorted_indices, lin_ids, normal_freq_present=Fals
 	mapping = {}
 	output_message = ["Subclone index to ID mapping: 0->germline"]
 	start_range = 0
+	offset = 1
 	if normal_freq_present == True:
 		start_range = 1
+		offset = 0
 	for i in range(start_range, len(sorted_indices)):
 		my_key = lin_ids[sorted_indices[i]]
 		try:
 			# this statement either throws a KeyError or a TypeError
 			mapping[my_key][0] = None
 		except KeyError:
-			mapping[my_key] = i+1
+			mapping[my_key] = i + offset
 		except TypeError:
 			raise eo.MyException("lineage ID has to be unique.")
 
-		output_message.append("{0}->{1}".format(i+1, my_key))
+		output_message.append("{0}->{1}".format(i+offset, my_key))
 	
 	logging.info(", ".join(output_message))
 	return mapping
