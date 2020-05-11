@@ -1166,6 +1166,8 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(mapping[0], 2)
 		self.assertEqual(mapping[1], 4)
 		self.assertEqual(mapping[2], 3)
+		self.assertEqual(mapping[3], 1)
+		self.assertEqual(mapping[4], 0)
 
 
 	def test_convert_zmatrix_for_internal_use(self):

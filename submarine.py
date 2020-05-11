@@ -1459,7 +1459,7 @@ def convert_ambiguous_to_zpf(z_matrix):
 	assert z_matrix[0][0] == 0
 	lin_num = len(z_matrix)
 	for k in range(lin_num):
-		for k2 in range(k+1, lin_num):
+		for k2 in range(lin_num):
 			if z_matrix[k][k2] == -1:
 				z_matrix[k][k2] = 0.5
 
@@ -1548,13 +1548,14 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 # creates a mapping between IDs of lineages and ordering according to their frequencies
 def create_ID_ordering_mapping(sorted_indices, lin_ids, normal_freq_present=False):
 	mapping = {}
-	output_message = ["Subclone index to ID mapping: 0->germline"]
 	start_range = 0
 	offset = 1
 	if normal_freq_present == True:
-		start_range = 1
 		offset = 0
-	for i in range(start_range, len(sorted_indices)):
+		output_message = ["Subclone index to ID mapping: "]
+	else:
+		output_message = ["Subclone index to ID mapping: 0->germline"]
+	for i in range(len(sorted_indices)):
 		my_key = lin_ids[sorted_indices[i]]
 		try:
 			# this statement either throws a KeyError or a TypeError
