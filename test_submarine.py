@@ -276,7 +276,7 @@ class ModelTest(unittest.TestCase):
 		true_ppm = np.asarray([[0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0],
 			[0, 0, 1, 0, 0, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, userZ_file=userZ_file, 
 			userSSM_file=userSSM_file, output_prefix=output_prefix, overwrite=overwrite, use_logging=use_logging)
 
@@ -294,7 +294,7 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=False)
 
@@ -309,7 +309,7 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=True)
 
@@ -972,7 +972,7 @@ class ModelTest(unittest.TestCase):
 		# no user constraints, works
 		freq_file = "testdata/unittests/frequencies2.csv"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
+		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -1001,8 +1001,8 @@ class ModelTest(unittest.TestCase):
 		userZ_file = "testdata/unittests/userZ.csv"
 		output_prefix = "testdata/unittests/out_result4"
 
-		my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file, use_logging=True, 
-			output_prefix=output_prefix, overwrite=True)
+		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file, 
+			use_logging=True, output_prefix=output_prefix, overwrite=True)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -1031,7 +1031,7 @@ class ModelTest(unittest.TestCase):
 		userZ_file = "testdata/unittests/userZ_2.csv"
 
 		with self.assertRaises(eo.MyException):
-			my_lins, z_matrix, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
+			my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
 
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
@@ -1041,7 +1041,7 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(message, error_message)
 
 		# allows noise (#1)
-		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0],])
 		real_avFreqs = np.asarray([[-0.2, -0.11], [0, 0], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
@@ -1052,7 +1052,8 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 		# allows noise, given theshold is large enough (#2)
-		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, noise_buffer=0.3, do_binary_search=False)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
+			noise_buffer=0.3, do_binary_search=False)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
@@ -1072,7 +1073,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies4.csv"
 		userZ_file = "testdata/unittests/userZ_3.csv"
 
-		my_lins, z_matrix_for_output, avFreqs, ppm = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
 		real_avFreqs = np.asarray([[-0.4, 0.1], [-0.3, -0.1], [0.6, 0.5], [0.5, 0.6], [0.5, 0]])

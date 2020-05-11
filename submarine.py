@@ -1158,7 +1158,7 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 
 	logging.info("SubMARine is done.")
 
-	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing
+	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping
 
 # check whether all CNAs are assigned to subclone 1
 def check_all_clonal(my_cnas):
@@ -1280,7 +1280,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 
 	logging.info("SubMARine is done.")
 
-	return my_lins, z_matrix_for_output, avFreqs, ppm
+	return my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping
 
 # function to call Subpoplar/sum rule algorithm and that takes care of noise buffer
 def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
