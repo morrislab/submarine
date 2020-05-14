@@ -327,13 +327,29 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
 
-		# example #5) that tests working with noise, without binary search
+		# example #5a) that tests working with noise, without binary search, 2 not allowed to be parent of 3
+		freq_file = "testdata/unittests/frequencies5.csv"
+		cna_file = "testdata/unittests/cnas6.csv"
+		ssm_file = "testdata/unittests/ssms5.csv"
+		impact_file = "testdata/unittests/impact2.csv"
+		user_z_file = "testdata/unittests/userZ_4.csv"
+
+		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
+			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
+			allow_noise=True, do_binary_search=False, userZ_file=user_z_file)
+
+		self.assertTrue((ppm == ppm_true).all())
+		self.assertEqual(ssm_phasing[0], [0, None])
+
+		# example #5b) that tests working with noise, without binary search, no user Z constraints
 		freq_file = "testdata/unittests/frequencies5.csv"
 		cna_file = "testdata/unittests/cnas6.csv"
 		ssm_file = "testdata/unittests/ssms5.csv"
 		impact_file = "testdata/unittests/impact2.csv"
 
-		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
+		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]])
 
 		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
@@ -348,14 +364,15 @@ class ModelTest(unittest.TestCase):
 		ssm_file = "testdata/unittests/ssms5.csv"
 		impact_file = "testdata/unittests/impact2.csv"
 
-		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0]])
+		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
 
+		import pdb; pdb.set_trace()
 		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=True)
 
 		self.assertTrue((ppm == ppm_true).all())
-		self.assertEqual(ssm_phasing[0], [0, None])
+		self.assertEqual(ssm_phasing[0], [0, cons.B])
 
 	def test_check_lost_alleles_for_basic(self):
 		# works
@@ -1084,9 +1101,9 @@ class ModelTest(unittest.TestCase):
 		# allows noise (#1)
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
 
-		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0],])
-		real_avFreqs = np.asarray([[-0.2, -0.11], [0, 0], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
-		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 1, 0],])
+		real_avFreqs = np.asarray([[0.2, 0.2], [0, 0], [0.3, 0.5], [0.1, -0.01], [0.4, 0.31]])
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 1], [0, 0, 0, 0, 0]]
 
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
@@ -1096,9 +1113,9 @@ class ModelTest(unittest.TestCase):
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
 			noise_buffer=0.3, do_binary_search=False)
 
-		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 0, 0, 0],])
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [1, 1, 1, 1, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
-		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, -1, -1, -1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, -1, -1, -1], [0, 0, 0, -1, -1], [0, 0, 0, 0, -1], [0, 0, 0, 0, 0]]
 
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
@@ -1116,9 +1133,13 @@ class ModelTest(unittest.TestCase):
 
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
 
-		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0]])
-		real_avFreqs = np.asarray([[-0.4, 0.1], [-0.3, -0.1], [0.6, 0.5], [0.5, 0.6], [0.5, 0]])
-		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 1, 0, 0, 0]])
+		real_avFreqs = np.asarray([[0.1, 0.1], [-0.1, 0.3], [-0.1, 0.1], [0.6, 0.5], [0.5, 0]])
+		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 1], [0, 0, 0, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
+		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 
 	def test_get_lineages_from_freqs(self):
@@ -3935,7 +3956,7 @@ class ModelTest(unittest.TestCase):
 
 
 	def test_check_crossing_rule_function(self):
-			# crossing rule fulfilled
+			# crossing rule satisfied
 			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)
 			lin1 = lineage.Lineage([], [1.0, 0.8, 1.0], None, None, None, None, None, None, None, None)
 			lin2 = lineage.Lineage([], [0.8, 0.7, 0.9], None, None, None, None, None, None, None, None)
@@ -3963,6 +3984,21 @@ class ModelTest(unittest.TestCase):
 
 			self.assertEqual(zero_count, 0)
 			self.assertEqual(z_matrix[1][2], -1)
+
+			# crossing rule not violated because of noise buffer
+			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)
+			lin1 = lineage.Lineage([], [1.0, 0.8, 1.0], None, None, None, None, None, None, None, None)
+			lin2 = lineage.Lineage([], [0.8, 0.81, 0.9], None, None, None, None, None, None, None, None)
+			lins = [lin0, lin1, lin2]
+			z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+			zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+					z_matrix, 1, 3)
+			
+			zero_count = submarine.check_crossing_rule_function(lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
+				noise_buffer=0.1)
+
+			self.assertEqual(zero_count, 1)
+			self.assertEqual(z_matrix[1][2], 0)
 
 			# crossing rule violated, leads to Z-matrix update
 			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)

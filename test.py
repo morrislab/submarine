@@ -9,6 +9,6 @@ if __name__ == '__main__':
 	print("")
 
 	unittest.TextTestRunner(verbosity=2).run(suite_submarine) 
-	unittest.TextTestRunner(verbosity=2).run(suite_io_file)
+	#unittest.TextTestRunner(verbosity=2).run(suite_io_file)
 
 	print("")

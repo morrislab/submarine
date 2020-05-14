@@ -1115,10 +1115,12 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	# assign SSMs to lineages
 	ssm_num = add_SSMs(my_lins=my_lins, lin_num=lin_num, my_ssms=my_ssms)
 
-	# crossing rule
-	logging.debug("crossing rule")
-	zero_count = lin_num * lin_num
-	zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+	# DO NEW THINGS FROM HERE!!!
+
+	# already implemented in new function
+	## crossing rule
+	#logging.debug("crossing rule")
+	#zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
 
 	# go once through segment and get gains, losses and SSMs
 	gain_num = []
@@ -1132,28 +1134,30 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	# copy present_ssm list for later
 	origin_present_ssms = copy.deepcopy(present_ssms)
 	# check for pairwise and easy triplet-wise constraints that lead to absent relationships
-	logging.debug("propagate pairwise and easy-triplet wise constraints")
+	logging.info("propagate absent relationships through lost allele and equivalence ruless")
+	zero_count = lin_num * lin_num
 	z_matrix_list, z_matrix_fst_rnd, triplets_list = (
 	        post_analysis_Z_matrix(my_lins, seg_num, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
 	        matrix_splitting=False, first_absence_propagation=True, CNVs=CNVs, present_ssms=present_ssms, gain_num=gain_num,
 		loss_num=loss_num))
-	# check whether sum rule leads to unambiguous relationships
-	logging.debug("using sum rule")
+	## check whether sum rule leads to unambiguous relationships
+	#logging.info("using sum rule")
 	zmcos = create_Z_Matrix_Co_objects(z_matrix_list, z_matrix_fst_rnd, [present_ssms], triplets_list)
 	if len(zmcos) > 1:
 		raise eo.MyException("zmcos should only have one entry!")
 	zmco = zmcos[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, buffer_was_output = (
-			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+		# crossing rule and sum rule
+		dummy, avFreqs, ppm, zmco, present_ssms, do_binary_search, buffer_was_output = (
+			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
-			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
+			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
 		logging.info(message2)
-		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
+		logging.info("SubMARine couldn't finish because sum constraint cannot be satisfied.")
 		return
 	except eo.MyException as e:
 		raise e
@@ -1248,13 +1252,6 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	z_matrix, triplet_xys, triplet_ysx, triplet_xsy = create_z_germline_trivial_user_vars_tree_rule(my_lins=my_lins, user_z=user_z,
 		lin_num=lin_num)
 	
-	# crossing rule
-	logging.debug("crossing rule")
-	zero_count = lin_num * lin_num
-	zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
-
-	# check whether sum rule leads to unambiguous relationships
-	logging.debug("using sum rule")
 	# create needed variables
 	gain_num = []
 	loss_num = []
@@ -1269,10 +1266,11 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	zmco = create_Z_Matrix_Co_objects([z_matrix], z_matrix, [present_ssms], triplets_list)[0]
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
-		dummy, avFreqs, ppm, zmco, zero_count, present_ssms, do_binary_search, buffer_was_output = (
-			outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count,
+		# crossing rule and sum rule
+		dummy, avFreqs, ppm, zmco, present_ssms, do_binary_search, buffer_was_output = (
+			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
-			maximal_noise=maximal_noise, do_binary_search=do_binary_search))
+			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
@@ -1301,25 +1299,41 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 
 	return my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping
 
+def do_crossing_absent_and_subpoplar(lin_num, zmco, noise_buffer, frequencies, seg_num, gain_num, loss_num,
+	CNVs, present_ssms, my_lins):
+	# crossing rule
+	logging.info("crossing rule")
+	zero_count = lin_num * lin_num
+	zero_count = check_crossing_rule_function(my_lins, zmco.z_matrix, zero_count, zmco.triplet_xys, 
+		zmco.triplet_ysx, zmco.triplet_xsy, noise_buffer=noise_buffer)
+
+	# sum rule
+	logging.info("using sum rule")
+	dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
+		gain_num, loss_num, CNVs, present_ssms, noise_buffer=noise_buffer)
+
+	return dummy, avFreqs, ppm
+
 # function to call Subpoplar/sum rule algorithm and that takes care of noise buffer
-def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
+def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain_num, loss_num, CNVs, present_ssms,
 	allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, 
-	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False):
+	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False,
+	my_lins=None):
 
 	# copy objects so that the original stay unchanged during the Subpoplar try
 	zmco_copy = copy.deepcopy(zmco)
-	zero_count_copy = zero_count
 	present_ssms_copy = copy.deepcopy(present_ssms)
 
 	old_noise_buffer = noise_buffer
+	lin_num = len(my_lins)
 
 	try:
-		dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_copy, seg_num, zero_count_copy,
-			gain_num, loss_num, CNVs, present_ssms_copy, noise_buffer=noise_buffer)
+		dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_copy, noise_buffer, frequencies, 
+			seg_num, gain_num, loss_num, CNVs, present_ssms_copy, my_lins)
 	# noise buffer was reached
 	# check whether it can be decreased, then do Subpoplar again
 	except eo.NoParentsLeftNoise as e:
-		del zmco_copy, zero_count_copy, present_ssms_copy
+		del zmco_copy, present_ssms_copy
 
 		# if no noise is allowed, raise error
 		if allow_noise == False:
@@ -1333,11 +1347,12 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 				maximal_noise, noise_buffer))
 			raise e
 
-		dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, buffer_was_output = (
-			outer_subpoplar_w_noise(frequencies, zmco, seg_num, 
-			zero_count, gain_num, loss_num, CNVs, present_ssms,
+		logging.info("No solution with current noise buffer.")
+		dummy, avFreqs, ppm, zmco_copy, present_ssms_copy, do_binary_search, buffer_was_output = (
+			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, 
+			gain_num, loss_num, CNVs, present_ssms,
 			allow_noise=allow_noise, noise_buffer=noise_buffer, maximal_noise=maximal_noise,
-			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search))
+			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search, my_lins=my_lins))
 
 	# do a binary search to find a potentially lower buffer
 	if do_binary_search == True and allow_noise == True:
@@ -1350,25 +1365,26 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 			try:
 				# copy objects so that the original stay unchanged during the Subpoplar try
 				zmco_double_copy = copy.deepcopy(zmco)
-				zero_count_double_copy = zero_count
 				present_ssms_double_copy = copy.deepcopy(present_ssms)
 
-				# do Subpoplar again, this time with new, smaller noise buffer
-				dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco_double_copy, seg_num, zero_count_double_copy,
-					gain_num, loss_num, CNVs, present_ssms_double_copy, noise_buffer=new_noise_buffer)
+				dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, new_noise_buffer, 
+					frequencies, seg_num, gain_num, loss_num, CNVs, present_ssms_double_copy, my_lins)
 
 				# if Subpoplar was successful, delete variables of previous Subpoplar run and rename new ones
-				del zmco_copy, zero_count_copy, present_ssms_copy
+				del zmco_copy, present_ssms_copy
 				zmco_copy = zmco_double_copy
-				zero_count_copy = zero_count_double_copy
 				present_ssms_copy = present_ssms_double_copy
+				logging.info("Solution with noise buffer found.")
 
 				# decrease theshold even more
 				old_noise_buffer = new_noise_buffer
 				new_noise_buffer = new_noise_buffer - interval_length
+				if abs(old_noise_buffer - new_noise_buffer) > buffer_difference:
+					logging.info("Looking for smaller noise buffer.")
 
 			except eo.NoParentsLeftNoise as e:
-				del zmco_double_copy, zero_count_double_copy, present_ssms_double_copy
+				del zmco_double_copy, present_ssms_double_copy
+				logging.info("No solution with current noise buffer.")
 
 				# increase noise buffer
 				new_noise_buffer = new_noise_buffer + interval_length
@@ -1382,7 +1398,7 @@ def outer_subpoplar_w_noise(frequencies, zmco, seg_num, zero_count, gain_num, lo
 		if noise_buffer != old_noise_buffer:
 			logging.info("Binary search found a smaller buffer. First buffer was {0}.".format(noise_buffer))
 
-	return dummy, avFreqs, ppm, zmco_copy, zero_count_copy, present_ssms_copy, do_binary_search, buffer_was_output
+	return dummy, avFreqs, ppm, zmco_copy, present_ssms_copy, do_binary_search, buffer_was_output
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -2545,12 +2561,12 @@ def update_Z_triplet(x, y, s):
 				return False, "", 0, x, y, s
 
 # checks the crossing rule and adapts the Z-matrix if necessary
-def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy):
+def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, noise_buffer=0):
     lin_num = len(my_lineages)
 
     for k in range(1, lin_num):
         for k_prime in range(k+1, lin_num):
-            no_violation = (np.asarray(my_lineages[k].freq) >= np.asarray(my_lineages[k_prime].freq)).all()
+            no_violation = (np.asarray(my_lineages[k].freq) + cons.EPSILON_FREQUENCY + noise_buffer >= np.asarray(my_lineages[k_prime].freq)).all()
             if no_violation == False:
                 # make relationship absent
                 if z_matrix[k][k_prime] == 1:
