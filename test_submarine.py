@@ -341,7 +341,7 @@ class ModelTest(unittest.TestCase):
 			allow_noise=True, do_binary_search=False, userZ_file=user_z_file)
 
 		self.assertTrue((ppm == ppm_true).all())
-		self.assertEqual(ssm_phasing[0], [0, None])
+		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
 
 		# example #5b) that tests working with noise, without binary search, no user Z constraints
 		freq_file = "testdata/unittests/frequencies5.csv"
@@ -356,7 +356,7 @@ class ModelTest(unittest.TestCase):
 			allow_noise=True, do_binary_search=False)
 
 		self.assertTrue((ppm == ppm_true).all())
-		self.assertEqual(ssm_phasing[0], [0, None])
+		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
 
 		# example #6) that tests working with noise, using binary search
 		freq_file = "testdata/unittests/frequencies5.csv"
@@ -366,7 +366,6 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
 
-		import pdb; pdb.set_trace()
 		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=True)

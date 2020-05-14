@@ -1149,9 +1149,9 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, present_ssms, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
-			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
+			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
@@ -1267,9 +1267,9 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, present_ssms, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
-			gain_num, loss_num, CNVs, present_ssms, allow_noise=allow_noise, noise_buffer=noise_buffer,
+			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
 	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
 		message1, message2 = e.message.split("\n")
@@ -1300,7 +1300,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	return my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping
 
 def do_crossing_absent_and_subpoplar(lin_num, zmco, noise_buffer, frequencies, seg_num, gain_num, loss_num,
-	CNVs, present_ssms, my_lins):
+	CNVs, my_lins):
 	# crossing rule
 	logging.info("crossing rule")
 	zero_count = lin_num * lin_num
@@ -1310,30 +1310,29 @@ def do_crossing_absent_and_subpoplar(lin_num, zmco, noise_buffer, frequencies, s
 	# sum rule
 	logging.info("using sum rule")
 	dummy, avFreqs, ppm = sum_rule_algo_outer_loop(frequencies, zmco, seg_num, zero_count,
-		gain_num, loss_num, CNVs, present_ssms, noise_buffer=noise_buffer)
+		gain_num, loss_num, CNVs, zmco.present_ssms, noise_buffer=noise_buffer)
 
 	return dummy, avFreqs, ppm
 
 # function to call Subpoplar/sum rule algorithm and that takes care of noise buffer
-def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain_num, loss_num, CNVs, present_ssms,
+def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain_num, loss_num, CNVs,
 	allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, 
 	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False,
 	my_lins=None):
 
 	# copy objects so that the original stay unchanged during the Subpoplar try
 	zmco_copy = copy.deepcopy(zmco)
-	present_ssms_copy = copy.deepcopy(present_ssms)
 
 	old_noise_buffer = noise_buffer
 	lin_num = len(my_lins)
 
 	try:
 		dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_copy, noise_buffer, frequencies, 
-			seg_num, gain_num, loss_num, CNVs, present_ssms_copy, my_lins)
+			seg_num, gain_num, loss_num, CNVs, my_lins)
 	# noise buffer was reached
 	# check whether it can be decreased, then do Subpoplar again
 	except eo.NoParentsLeftNoise as e:
-		del zmco_copy, present_ssms_copy
+		del zmco_copy 
 
 		# if no noise is allowed, raise error
 		if allow_noise == False:
@@ -1348,9 +1347,9 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			raise e
 
 		logging.info("No solution with current noise buffer.")
-		dummy, avFreqs, ppm, zmco_copy, present_ssms_copy, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, 
-			gain_num, loss_num, CNVs, present_ssms,
+			gain_num, loss_num, CNVs, 
 			allow_noise=allow_noise, noise_buffer=noise_buffer, maximal_noise=maximal_noise,
 			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search, my_lins=my_lins))
 
@@ -1365,15 +1364,13 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			try:
 				# copy objects so that the original stay unchanged during the Subpoplar try
 				zmco_double_copy = copy.deepcopy(zmco)
-				present_ssms_double_copy = copy.deepcopy(present_ssms)
 
 				dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, new_noise_buffer, 
-					frequencies, seg_num, gain_num, loss_num, CNVs, present_ssms_double_copy, my_lins)
+					frequencies, seg_num, gain_num, loss_num, CNVs, my_lins)
 
 				# if Subpoplar was successful, delete variables of previous Subpoplar run and rename new ones
-				del zmco_copy, present_ssms_copy
+				del zmco_copy 
 				zmco_copy = zmco_double_copy
-				present_ssms_copy = present_ssms_double_copy
 				logging.info("Solution with noise buffer found.")
 
 				# decrease theshold even more
@@ -1383,7 +1380,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 					logging.info("Looking for smaller noise buffer.")
 
 			except eo.NoParentsLeftNoise as e:
-				del zmco_double_copy, present_ssms_double_copy
+				del zmco_double_copy 
 				logging.info("No solution with current noise buffer.")
 
 				# increase noise buffer
@@ -1398,7 +1395,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 		if noise_buffer != old_noise_buffer:
 			logging.info("Binary search found a smaller buffer. First buffer was {0}.".format(noise_buffer))
 
-	return dummy, avFreqs, ppm, zmco_copy, present_ssms_copy, do_binary_search, buffer_was_output
+	return dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -3109,7 +3106,10 @@ def update_SSM_phasing_after_Z_matrix_update(current_lineages, origin_present_ss
 # ssms_per_segments: list in which SSMs are put in lists with their segment index
 #	3D index: [lin_index][A, B, unphased][seg_index]
 def get_updated_SSM_list(lin_index, phase, ssms_per_segments):
-	return [j for i in ssms_per_segments[lin_index][phase] for j in i]
+	new_phasing_list = [j for i in ssms_per_segments[lin_index][phase] for j in i]
+	for my_ssm in new_phasing_list:
+		my_ssm.phase = phase
+	return new_phasing_list
 
 # changes the phasing of the SSMs in their segment lists
 # ssms_per_segments: list in which SSMs are put in lists with their segment index
