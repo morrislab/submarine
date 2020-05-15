@@ -387,7 +387,8 @@ def is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, gain_num=None, 
 		return False
 
 	# propagate crossing rule
-	zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+	zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
+		noise_buffer=noise_buffer)
 
 	# propagate relationship absense rule
 	try:
@@ -2623,7 +2624,8 @@ def post_analysis_Z_matrix(my_lineages, seg_num, z_matrix, zero_count, triplet_x
 
 		# check crossing rule
 		if check_crossing_rule and not (isinstance(my_lineages[0].freq, float) or isinstance(my_lineages[0].freq, int)):
-			zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
+			zero_count = check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
+				noise_buffer=noise_buffer)
 
 	# iterate through all segments the first time and
 	# only check the simple cases, that are directly to decide in the first run

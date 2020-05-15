@@ -1002,6 +1002,21 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(total_count, 2)
 		self.assertEqual(valid_count, 2)
 
+		# 3 lineages, no mutations, two valid Z-matrices with noise threshold possible, making use of crossing rule
+		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2], [1.0, 1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5, 0.4], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.6, 0.3], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2]
+		seg_num = 1
+
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
+			noise_buffer=0.1)
+
+		self.assertEqual(output, "True\n")
+		self.assertEqual(total_count, 2)
+		self.assertEqual(valid_count, 2)
+
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 
 	def test_create_ID_ordering_mapping(self):
