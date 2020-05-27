@@ -89,10 +89,18 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	SBCLR = 3
 	USED_P1 = 4
 	USED_M1 = 5
-	for kp in range(len(z_matrix)):
-		for k in range(0, kp):
-			if z_matrix[k][kp] == 0:
-				undef_rels.append([0, k, kp, None, False, False])
+	# get undefined relationships based on Z-matrix
+	if ppm is None:
+		for kp in range(len(z_matrix)):
+			for k in range(0, kp):
+				if z_matrix[k][kp] == 0:
+					undef_rels.append([0, k, kp, None, False, False])
+	# get undefined relationships based on possible parent matrix
+	else:
+		for kp in range(len(ppm)):
+			for k in range(0, kp):
+				if ppm[kp][k] == 1 and z_matrix[k][kp] == 0:
+					undef_rels.append([0, k, kp, None, False, False])
 	number_undef_rels = len(undef_rels)
 
 	# different variables needed for this function

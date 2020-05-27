@@ -1006,6 +1006,40 @@ class ModelTest(unittest.TestCase):
 		all_options2 = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True)
 		self.assertEqual(all_options, all_options2)
 
+		# same data as before, testing correct iteration through all settings, with possible parent matrix
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]]
+
+		all_options2 = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True, ppm=ppm)
+		self.assertEqual(all_options, all_options2)
+
+		# testing correct iteration through all settings, different example
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0]]
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.2], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3]
+		seg_num = 1
+		all_options = [[1, 1], [1, -1], [-1, 1], [-1, -1]]
+		all_options_ppm  = [[1], [-1]]
+
+		all_options2 = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True)
+		self.assertEqual(all_options, all_options2)
+
+		all_options2 = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_iteration=True, ppm=ppm)
+		self.assertEqual(all_options_ppm, all_options2)
+
+		# test Z-matrix for ppm case
+		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_reconstructions=True, ppm=ppm)
+
+		self.assertEqual(total_count, 2)
+		self.assertEqual(valid_count, 2)
+		z_matrix_1 = np.asarray([[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 1], [-1, -1, -1, -1]])
+		z_matrix_2 = np.asarray([[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, 1], [-1, -1, -1, -1]])
+		self.assertTrue(np.array_equal(reconstructions[0].zmco.z_matrix, z_matrix_1))
+		self.assertTrue(np.array_equal(reconstructions[1].zmco.z_matrix, z_matrix_2))
+
 		# 4 lineages, no mutations, all valid Z-matrices possible
 		# two Z-matrices are not possible because of tree rules, some values already get updated at earlier undefined entries
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
@@ -1034,8 +1068,27 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.array_equal(reconstructions[4].zmco.z_matrix, z_matrix_5))
 		self.assertTrue(np.array_equal(reconstructions[5].zmco.z_matrix, z_matrix_6))
 
+		# same input as before but with corresponding possible parent matrix
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]]
+		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lineages, seg_num, test_reconstructions=True, ppm=ppm)
+
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 6)
+		self.assertEqual(len(reconstructions), 6)
+		self.assertTrue(np.array_equal(reconstructions[0].zmco.z_matrix, z_matrix_1))
+		self.assertTrue(np.array_equal(reconstructions[1].zmco.z_matrix, z_matrix_2))
+		self.assertTrue(np.array_equal(reconstructions[2].zmco.z_matrix, z_matrix_3))
+		self.assertTrue(np.array_equal(reconstructions[3].zmco.z_matrix, z_matrix_4))
+		self.assertTrue(np.array_equal(reconstructions[4].zmco.z_matrix, z_matrix_5))
+		self.assertTrue(np.array_equal(reconstructions[5].zmco.z_matrix, z_matrix_6))
+
 		# same input as before but this time only ambiguity analysis is tested
 		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True)
+
+		self.assertEqual(output, "True\n")
+
+		# same input as before with possible parent matrix but this time only ambiguity analysis is tested
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True, ppm=ppm)
 
 		self.assertEqual(output, "True\n")
 
@@ -1052,6 +1105,13 @@ class ModelTest(unittest.TestCase):
 
 		self.assertEqual(output, "False, 1, 2, False, True\n")
 
+		# same as before but with possible parent matrix
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 0, 1, 0]]
+
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True, ppm=ppm)
+
+		self.assertEqual(output, "False, 1, 2, False, True\n")
+
 		# 3 lineages, no mutations, two valid Z-matrices with noise threshold possible
 		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
 		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
@@ -1062,6 +1122,16 @@ class ModelTest(unittest.TestCase):
 
 		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
 			noise_buffer=np.asarray([0.1]*3).reshape(3,1))
+
+		self.assertEqual(output, "True\n")
+		self.assertEqual(total_count, 2)
+		self.assertEqual(valid_count, 2)
+
+		# same as before but with ppm
+		ppm = [[0, 0, 0], [1, 0, 0], [1, 1, 0]]
+
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
+			noise_buffer=np.asarray([0.1]*3).reshape(3,1), ppm=ppm)
 
 		self.assertEqual(output, "True\n")
 		self.assertEqual(total_count, 2)
@@ -1081,6 +1151,15 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(output, "True\n")
 		self.assertEqual(total_count, 2)
 		self.assertEqual(valid_count, 2)
+
+		# same as before but with ppm
+		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
+			noise_buffer=np.asarray([0.1]*3*2).reshape(3,2), ppm=ppm)
+
+		self.assertEqual(output, "True\n")
+		self.assertEqual(total_count, 2)
+		self.assertEqual(valid_count, 2)
+
 
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 
@@ -1650,12 +1729,16 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 4)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 4)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 4)
 		self.assertEqual(valid_count, 4)
 
@@ -1667,12 +1750,16 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 6)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 6)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 8)
 		self.assertEqual(valid_count, 6)
 
@@ -1684,12 +1771,16 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 		self.assertEqual(submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True), 2)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 2)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 4)
 		self.assertEqual(valid_count, 2)
 
@@ -1707,13 +1798,17 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 3)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 3)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 4)
 		self.assertEqual(valid_count, 3)
 
@@ -1730,13 +1825,17 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
-		# iterative
+		# iterative 
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 2)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 3)
 		self.assertEqual(valid_count, 2)
 
@@ -1754,13 +1853,17 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 2)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 3)
 		self.assertEqual(valid_count, 2)
 
@@ -1778,13 +1881,17 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 1, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), recursive=True)
 		self.assertEqual(count, 2)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 4)
+		self.assertEqual(valid_count, 2)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 4)
 		self.assertEqual(valid_count, 2)
 
@@ -1802,15 +1909,19 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 1, 0]]
 
 		# recursive
-		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 		with self.assertRaises(eo.MyException):
 			# input should be propagted further, thus exception is thrown
 			count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), 
 				recursive=True, check_validity=True)
 		# iterative
 		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		self.assertEqual(total_count, 3)
+		self.assertEqual(valid_count, 1)
+		# iterative with ppm
+		total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 		self.assertEqual(total_count, 3)
 		self.assertEqual(valid_count, 1)
 
@@ -1828,10 +1939,14 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [1, 1, 1, 0]]
 
 		# iterative
 		with self.assertRaises(eo.ReconstructionInvalid):
 			total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num)
+		# iterative with ppm
+		with self.assertRaises(eo.ReconstructionInvalid):
+			total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, ppm=ppm)
 
 		# 10) 3, different CNVs in linegaes 1 and 3, unphased SSM in 2, depending on phasing of 2, it can be ancestor of 3 or not
 		lin0 = lineage.Lineage([1, 2, 3], [1, 1], [], [], [], [], [], [], [], [])
@@ -1847,6 +1962,7 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		seg_num = 1
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		ppm = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]]
 
 		# recursive
 		count = submarine.compute_number_ambiguous_recs(copy.deepcopy(my_lins), seg_num, copy.deepcopy(z_matrix), 
@@ -1854,6 +1970,12 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(count, 5)
 		# iterative
 		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, test_reconstructions=True)
+		self.assertEqual(total_count, 8)
+		self.assertEqual(valid_count, 5)
+		self.assertEqual(reconstructions[0].present_ssms[0][1][2], True)
+		self.assertEqual(reconstructions[3].present_ssms[0][0][2], True)
+		# iterative with ppm
+		reconstructions, total_count, valid_count = submarine.new_dfs(z_matrix, my_lins, seg_num, test_reconstructions=True, ppm=ppm)
 		self.assertEqual(total_count, 8)
 		self.assertEqual(valid_count, 5)
 		self.assertEqual(reconstructions[0].present_ssms[0][1][2], True)
