@@ -14,6 +14,64 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_get_subclone_specific_noise_buffer(self):
+
+		# 4 lins, lin 3 has three possible parents
+		ppm = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 1, 1, 0]])
+		frequencies = np.asarray([[1, 1], [0.5, 0.5], [0.4, 0.3], [0.2, 0.4]])
+		avFreqs = np.asarray([[0.1, 0.2], [0.5, 0.5], [0.4, 0.3], [0.2, 0.4]])
+		noise_buffer = np.asarray([0.2]*4*2).reshape(4,2)
+
+		output = submarine.get_subclone_specific_noise_buffer(noise_buffer, ppm, avFreqs, frequencies)
+
+		self.assertTrue((output[0][0] == np.asarray([0, 0])).all())
+		self.assertTrue((output[1][0] == np.asarray([0.2, 0.2])).all())
+		self.assertTrue((output[2][0] == np.asarray([0.2, 0.2])).all())
+		self.assertTrue((output[3][0] == np.asarray([0, 0])).all())
+		self.assertTrue(np.isclose(output[3][1], np.asarray([0, 0.1])).all())
+		self.assertTrue((output[3][2] == np.asarray([0.1, 0.2])).all())
+
+	def test_get_smallest_subclone_specific_noise_buffer_set(self):
+
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0.2, 0.2])], [np.asarray([0.2, 0.2])], 
+			[np.asarray([0, 0]), np.asarray([0, 0.1]), np.asarray([0.1, 0.2])]]
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.2, 0.2], [0.2, 0.2], [0, 0]])
+
+		my_set = submarine.get_smallest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+
+		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+
+	def test_get_second_smallest_subclone_specific_noise_buffer_set(self):
+
+		# easy example
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0, 0]), np.asarray([0.1, 0.2])], [np.asarray([0.2, 0.2]), np.asarray([0.3, 0.4])], 
+			[np.asarray([0, 0]), np.asarray([0, 0.1]), np.asarray([0.1, 0.2])]]
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0, 0], [0.2, 0.2], [0, 0.1]])
+
+		my_set = submarine.get_second_smallest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+
+		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+
+		# example where there are multiple best once
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0.4, 0.4])], [np.asarray([0, 0]), np.asarray([0.3, 0.3])],
+			[np.asarray([0, 0]), np.asarray([0, 0]), np.asarray([0.2, 0.2])], [np.asarray([0.3, 0.3]), np.asarray([0.4, 0.4])]]
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.4, 0.4], [0, 0], [0.2, 0.2], [0.3, 0.3]])
+
+		my_set = submarine.get_second_smallest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+
+		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+
+		# example where there are only multiple best once
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0.4, 0.4])], [np.asarray([0, 0])],
+			[np.asarray([0, 0]), np.asarray([0, 0])], [np.asarray([0.3, 0.3])]]
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.4, 0.4], [0, 0], [0, 0], [0.3, 0.3]])
+
+		my_set = submarine.get_second_smallest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+
+		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+		
+		
+
 	def test_reorder_matrix_according_to_mapping(self):
 
 		# small example
@@ -135,21 +193,21 @@ class ModelTest(unittest.TestCase):
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.4, 0.75]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
 
-		self.assertEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.55)
+		self.assertTrue((submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps, 4) == 0.55).all())
 
 		# other example
 		k = 3
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.8, 0.7], [0.7, 0.75]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.1, 0.1]])
 
-		self.assertEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.6)
+		self.assertTrue((submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps, 4) == 0.6).all())
 
 		# other example
 		k = 3
 		linFreqs = np.asarray([[1, 1], [0.9, 0.8], [0.6, 0.7], [0.7, 0.3]])
 		avFreqs_from_initial_pps = np.asarray([[0.1, 0.2], [0.3, 0.1]])
 
-		self.assertAlmostEqual(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps), 0.4)
+		self.assertTrue(np.isclose(submarine.compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps, 4), 0.4).all())
 
 
 	def test_get_possible_parents_from_ppmatrix(self):
@@ -317,7 +375,7 @@ class ModelTest(unittest.TestCase):
 		true_ppm = np.asarray([[0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0],
 			[0, 0, 1, 0, 0, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, userZ_file=userZ_file, 
 			userSSM_file=userSSM_file, output_prefix=output_prefix, overwrite=overwrite, use_logging=use_logging)
 
@@ -335,13 +393,16 @@ class ModelTest(unittest.TestCase):
 		user_z_file = "testdata/unittests/userZ_4.csv"
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
+		buffer_true = np.asarray([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=False, userZ_file=user_z_file)
 
 		self.assertTrue((ppm == ppm_true).all())
 		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
+		self.assertTrue(np.isclose(returned_noise_buffer, buffer_true).all())
+
 
 		# example #5b) that tests working with noise, without binary search, no user Z constraints
 		freq_file = "testdata/unittests/frequencies5.csv"
@@ -351,10 +412,12 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=False)
 
+		self.assertFalse(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, np.asarray([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])).all())
 		self.assertTrue((ppm == ppm_true).all())
 		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
 
@@ -366,10 +429,12 @@ class ModelTest(unittest.TestCase):
 
 		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping = submarine.go_extended_version(freq_file=freq_file, 
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
 			allow_noise=True, do_binary_search=True)
 
+		self.assertTrue(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, np.asarray([[0, 0], [0.1, 0.1], [0.1, 0.1], [0.1, 0.1]])).all())
 		self.assertTrue((ppm == ppm_true).all())
 		self.assertEqual(ssm_phasing[0], [0, cons.B])
 
@@ -996,7 +1061,7 @@ class ModelTest(unittest.TestCase):
 		seg_num = 1
 
 		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
-			noise_buffer=0.1)
+			noise_buffer=np.asarray([0.1]*3).reshape(3,1))
 
 		self.assertEqual(output, "True\n")
 		self.assertEqual(total_count, 2)
@@ -1011,7 +1076,7 @@ class ModelTest(unittest.TestCase):
 		seg_num = 1
 
 		total_count, valid_count, output = submarine.new_dfs(z_matrix, my_lineages, seg_num, analyze_ambiguity_during_runtime=True,
-			noise_buffer=0.1)
+			noise_buffer=np.asarray([0.1]*3*2).reshape(3,2))
 
 		self.assertEqual(output, "True\n")
 		self.assertEqual(total_count, 2)
@@ -1044,7 +1109,7 @@ class ModelTest(unittest.TestCase):
 		# no user constraints, works
 		freq_file = "testdata/unittests/frequencies2.csv"
 
-		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
+		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -1073,7 +1138,7 @@ class ModelTest(unittest.TestCase):
 		userZ_file = "testdata/unittests/userZ.csv"
 		output_prefix = "testdata/unittests/out_result4"
 
-		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file, 
+		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found= submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file, 
 			use_logging=True, output_prefix=output_prefix, overwrite=True)
 
 		real_z = [
@@ -1103,7 +1168,7 @@ class ModelTest(unittest.TestCase):
 		userZ_file = "testdata/unittests/userZ_2.csv"
 
 		with self.assertRaises(eo.MyException):
-			my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
+			my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
 
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
@@ -1113,19 +1178,24 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(message, error_message)
 
 		# allows noise (#1)
-		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 1, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0, 0], [0.3, 0.5], [0.1, -0.01], [0.4, 0.31]])
 		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 1], [0, 0, 0, 0, 0], [0, 0, 0, 0, 1], [0, 0, 0, 0, 0]]
+		true_buffer = np.asarray([[0.01+2*cons.EPSILON_FREQUENCY, 0.01+2*cons.EPSILON_FREQUENCY]]*5)
+		true_buffer[0][0] = 0
+		true_buffer[0][1] = 0
 
+		self.assertTrue(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, true_buffer).all())
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 		# allows noise, given theshold is large enough (#2)
-		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
-			noise_buffer=0.3, do_binary_search=False)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
+			noise_buffer=np.asarray([0.3]*5*2).reshape(5,2), do_binary_search=False)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [1, 1, 1, 1, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
@@ -1145,16 +1215,66 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies4.csv"
 		userZ_file = "testdata/unittests/userZ_3.csv"
 
-		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 1, 0, 0, 0]])
 		real_avFreqs = np.asarray([[0.1, 0.1], [-0.1, 0.3], [-0.1, 0.1], [0.6, 0.5], [0.5, 0]])
 		real_z_matrix_for_output = [[0, 1, 1, 1, 1], [0, 0, 1, 1, 1], [0, 0, 0, 1, 0], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+		real_buffer = np.asarray([[0.1, 0.1]] * 5)
+		real_buffer[0][0] = 0
+		real_buffer[0][1] = 0
 
+		self.assertTrue(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, real_buffer).all())
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
+		# allows noise, smallest noise buffer set leads to only a single tree (#4.5)
+		freq_file = "testdata/unittests/frequencies6.csv"
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
+
+		real_ppm = np.asarray([[0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0],
+			[0, 0, 0, 0, 1, 0, 0]])
+		real_avFreqs = np.asarray([[0, 0, 0], [0.03, 0.06, 1.0-0.81-0.89], [0.01, 0, 0.89-0.35], [0, 0, 0.8], [0.96-0.67, 0, 0.35], [0, 0.94, 0.01], [0.67, 0, 0]])
+		real_buffer = np.asarray([[0.7, 0.7, 0.7]] * 7)
+		real_buffer[0][0] = 0
+		real_buffer[0][1] = 0
+		real_buffer[0][2] = 0
+		real_buffer[6][0] = 0
+		real_buffer[6][1] = 0
+		real_buffer[6][2] = 0
+
+
+		self.assertTrue(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, real_buffer).all())
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
+
+		# best and second best set don't lead to valid subMAR (#4.6)
+		freq_file = "testdata/unittests/frequencies7.csv"
+		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [0, 1, 1, 0, 0]])
+		real_buffer = np.asarray([[0.3, 0.3]] * 5)
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
+
+		self.assertFalse(smallest_buffer_set_found)
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(real_buffer, returned_noise_buffer).all())
+
+		# example where subclone and sample-specific noise buffer is found that leads to valid subMAR (#4.7)
+		freq_file = "testdata/unittests/frequencies8.csv"
+		userZ_file = "testdata/unittests/userZ_5.csv"
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
+		true_ppm = np.asarray([[0, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0, 0], 
+			[0, 1, 0, 0, 1, 0, 0]])
+		true_buffer = np.asarray([[0, 0], [0.03999992, 0.03999992], [0.03999992, 0.03999992], [0.03999992, 0.03999992], [0.03999992, 0.03999992], [0.04, 0], [0.03, 0]])
+
+		self.assertTrue(smallest_buffer_set_found)
+		self.assertTrue(np.isclose(returned_noise_buffer, true_buffer).all())
+		self.assertTrue((ppm == true_ppm).all())
 
 	def test_get_lineages_from_freqs(self):
 
@@ -1375,7 +1495,7 @@ class ModelTest(unittest.TestCase):
 		ppm = [[0, 0, 0], [1, 0, 0], [1, 0, 0]]
 		seg_num = 1
 
-		self.assertTrue(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, noise_buffer=0.4))
+		self.assertTrue(submarine.is_reconstruction_valid(my_lineages, z_matrix, ppm, seg_num, noise_buffer=np.asarray([0.4]*4)))
 
 
 	def test_get_definite_parents_available_frequencies(self):
@@ -1754,7 +1874,7 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix))
 
 		lin1.freq[1] = 0.8
-		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix, noise_buffer=0.2))
+		self.assertTrue(submarine.check_sum_rule(my_lins, z_matrix, noise_buffer=np.asarray([0.2]*4*2).reshape(4,2)))
 
 	def test_change_unnecessary_phasing(self):
 
@@ -2067,7 +2187,7 @@ class ModelTest(unittest.TestCase):
 		new_z = z_matrix = [[-1, 1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_buffer=0.2)
+			noise_buffer=np.asarray([0.2]*4))
 		self.assertTrue(mybool)
 		self.assertTrue(np.array_equal(np.asarray(ppm_true), ppm))
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
@@ -2564,7 +2684,7 @@ class ModelTest(unittest.TestCase):
 		avFreqs_true = np.asarray([[-0.2], [1.0], [0.2]])
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_buffer=0.2)
+			noise_buffer=np.asarray([0.2]*3))
 
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
@@ -2594,7 +2714,7 @@ class ModelTest(unittest.TestCase):
 		avFreqs_true = np.asarray([[0], [1.0], [0.2]])
 
 		(mybool, avFreqs, ppm) = submarine.sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
-			noise_buffer=0.2)
+			noise_buffer=np.asarray([0.2]*3))
 
 		self.assertEqual(ppm.tolist(), ppm_true)
 		self.assertTrue(np.isclose(avFreqs_true, avFreqs).all())
@@ -2742,7 +2862,7 @@ class ModelTest(unittest.TestCase):
 			
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, gain_num, 
-				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+				loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_buffer=np.asarray([0]*3*2).reshape(3,2))
 		
 		# 2) recursive call of make_def_child doesn't work because of available frequency
 		kstar = 0
@@ -2773,7 +2893,7 @@ class ModelTest(unittest.TestCase):
 			
 		with self.assertRaises(eo.NoParentsLeftNoise) as e:
 			submarine.make_def_child(kstar, k, k, ppm, defparent, linFreqs, avFreqs, zmco, seg_num, zero_count, 
-				gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all)
+				gain_num, loss_num, CNVs, present_ssms, initial_pps_for_all=initial_pps_for_all, noise_buffer=np.asarray([0]*5*2).reshape(5,2))
 		
 		#TODO test trasitivity update which fails
 
@@ -4009,7 +4129,23 @@ class ModelTest(unittest.TestCase):
 					z_matrix, 1, 3)
 			
 			zero_count = submarine.check_crossing_rule_function(lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
-				noise_buffer=0.1)
+				noise_buffer=np.asarray([0.1]*3*3).reshape(3,3))
+
+			self.assertEqual(zero_count, 1)
+			self.assertEqual(z_matrix[1][2], 0)
+
+			# crossing rule not violated because of subclone/sample-specific noise buffer
+			lin0 = lineage.Lineage([1, 2], [1.0, 1.0, 1.0], None, None, None, None, None, None, None, None)
+			lin1 = lineage.Lineage([], [1.0, 0.8, 1.0], None, None, None, None, None, None, None, None)
+			lin2 = lineage.Lineage([], [0.8, 0.81, 0.9], None, None, None, None, None, None, None, None)
+			lins = [lin0, lin1, lin2]
+			z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+			zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(
+					z_matrix, 1, 3)
+			noise_buffer = np.asarray([[0, 0, 0], [0, 0, 0], [0, 0.1, 0]])
+			
+			zero_count = submarine.check_crossing_rule_function(lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy,
+				noise_buffer=noise_buffer)
 
 			self.assertEqual(zero_count, 1)
 			self.assertEqual(z_matrix[1][2], 0)

@@ -19,6 +19,7 @@ import copy
 from itertools import compress
 import json
 
+
 def reorder_matrix_according_to_mapping(my_matrix, mapping):
 	lin_num = len(my_matrix)
 	new_matrix = np.zeros(lin_num*lin_num).reshape(lin_num, lin_num)
@@ -545,7 +546,8 @@ def upper_bound_number_reconstructions(ppm):
 		raise Exception("Wrong format of possible parent matrix.")
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
-def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False):
+def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False,
+	noise_buffer=0):
 
 	# get ppm data
 	ppm = np.loadtxt(ppm_file, delimiter=",")
@@ -580,7 +582,8 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	logging.basicConfig(filename="{0}.dfs.log".format(output_prefix), filemode='w', level=10)	
 
 	# compute correct number and all possible reconstructions
-	total_count, valid_count, output = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, analyze_ambiguity_during_runtime=True)
+	total_count, valid_count, output = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, analyze_ambiguity_during_runtime=True,
+		noise_buffer=noise_buffer)
 
 	# last logging
 	logging.info("Total number of enumerated trees: {0}".format(total_count))
@@ -739,13 +742,16 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 		
 # given the lineages and a Z-matrix, checks whether the sum rule is fulfilled for all samples
 def check_sum_rule(my_lineages, z_matrix, noise_buffer=0):
+	lin_num = len(my_lineages)
 	sample_size = len(my_lineages[0].freq)
+	if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+		noise_buffer = np.zeros(lin_num*sample_size).reshape(lin_num,sample_size)
 	# check all lineages that can have more than one child
-	for k in range(len(my_lineages)-2):
+	for k in range(lin_num-2):
 		children = get_children(z_matrix, k)	
 		# check whether sum rule is fulfilled for all samples
 		for n in range(sample_size):
-			if my_lineages[k].freq[n] + cons.EPSILON_FREQUENCY + noise_buffer < sum([my_lineages[kp].freq[n] for kp in children]):
+			if my_lineages[k].freq[n] + cons.EPSILON_FREQUENCY < sum([my_lineages[kp].freq[n] - noise_buffer[kp][n] for kp in children]):
 				return False
 	return True
 
@@ -1116,13 +1122,6 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	# assign SSMs to lineages
 	ssm_num = add_SSMs(my_lins=my_lins, lin_num=lin_num, my_ssms=my_ssms)
 
-	# DO NEW THINGS FROM HERE!!!
-
-	# already implemented in new function
-	## crossing rule
-	#logging.debug("crossing rule")
-	#zero_count = check_crossing_rule_function(my_lins, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy)
-
 	# go once through segment and get gains, losses and SSMs
 	gain_num = []
 	loss_num = []
@@ -1150,7 +1149,7 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
@@ -1179,10 +1178,12 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 		np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
 		oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
 		oio.write_new_ssm_phasing(ssm_phasing, "{0}.ssm_phasing".format(output_prefix), overwrite)
+		if allow_noise:
+			np.savetxt("{0}.noisebuffer".format(output_prefix), returned_noise_buffer, delimiter=",")
 
 	logging.info("SubMARine is done.")
 
-	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping
+	return my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found
 
 # check whether all CNAs are assigned to subclone 1
 def check_all_clonal(my_cnas):
@@ -1268,7 +1269,7 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
 			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
@@ -1295,10 +1296,12 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 		oio.write_matrix_to_file(z_matrix_for_output, "{0}.zmatrix".format(output_prefix), overwrite)
 		np.savetxt("{0}.pospars".format(output_prefix), ppm, delimiter=",", fmt='%1.0f')
 		oio.write_result_file_as_JSON(my_lins, "{0}.lineage.json".format(output_prefix), test=overwrite)
+		if allow_noise:
+			np.savetxt("{0}.noisebuffer".format(output_prefix), returned_noise_buffer, delimiter=",")
 
 	logging.info("SubMARine is done.")
 
-	return my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping
+	return my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found
 
 def do_crossing_absent_and_subpoplar(lin_num, zmco, noise_buffer, frequencies, seg_num, gain_num, loss_num,
 	CNVs, my_lins):
@@ -1321,13 +1324,18 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False,
 	my_lins=None):
 
+	lin_num = len(my_lins)
+	freq_num = len(my_lins[0].freq)
+	smallest_buffer_set_found = False
+	if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+		noise_buffer = np.zeros(lin_num*freq_num).reshape(lin_num,freq_num)
+
 	# copy objects so that the original stay unchanged during the Subpoplar try
 	zmco_copy = copy.deepcopy(zmco)
-
 	old_noise_buffer = noise_buffer
-	lin_num = len(my_lins)
 
 	try:
+		returned_noise_buffer = noise_buffer
 		dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_copy, noise_buffer, frequencies, 
 			seg_num, gain_num, loss_num, CNVs, my_lins)
 	# noise buffer was reached
@@ -1340,29 +1348,35 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			raise e
 
 		# compute new noise buffer
-		noise_buffer = compute_minimal_noise_buffer(e.k, frequencies, e.avFreqs_from_initial_pps)
+		noise_buffer = compute_minimal_noise_buffer(e.k, frequencies, e.avFreqs_from_initial_pps, lin_num)
 		# if noise buffer is too high, raise error
-		if maximal_noise > 0 and noise_buffer > maximal_noise + cons.EPSILON_FREQUENCY:
-			logging.warning("Allowed noise buffer of {0} is smaller than necessary noise thresholf of {1}.".format(
-				maximal_noise, noise_buffer))
+		if maximal_noise > 0 and (noise_buffer > maximal_noise + cons.EPSILON_FREQUENCY).any():
+			logging.warning("Allowed noise buffer of {0} is smaller than necessary noise threshold of {1}.".format(
+				maximal_noise, np.array2string(noise_buffer).replace('\n', ',')))
 			raise e
 
 		logging.info("No solution with current noise buffer.")
-		dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output = (
+		dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, 
 			gain_num, loss_num, CNVs, 
 			allow_noise=allow_noise, noise_buffer=noise_buffer, maximal_noise=maximal_noise,
 			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search, my_lins=my_lins))
 
 	# do a binary search to find a potentially lower buffer
+	# all values in noise buffer are the same for now
 	if do_binary_search == True and allow_noise == True:
+		assert (noise_buffer[0][0] == noise_buffer).all()
 		do_binary_search = False
 
-		new_noise_buffer = noise_buffer / 2
-		interval_length = new_noise_buffer / 2
-		while (abs(old_noise_buffer - new_noise_buffer) > buffer_difference):
-			
+		old_noise_buffer = noise_buffer
+		interval_length = old_noise_buffer[0][0] / 2.0
+		#new_noise_buffer = noise_buffer / 2.0
+		#interval_length = new_noise_buffer[0][0] / 2.0
+		continue_search = True
+		while (continue_search):
+			#abs(old_noise_buffer[0][0] - new_noise_buffer[0][0]) > buffer_difference
 			try:
+				new_noise_buffer = old_noise_buffer - interval_length
 				# copy objects so that the original stay unchanged during the Subpoplar try
 				zmco_double_copy = copy.deepcopy(zmco)
 
@@ -1375,28 +1389,134 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 				logging.info("Solution with noise buffer found.")
 
 				# decrease theshold even more
-				old_noise_buffer = new_noise_buffer
-				new_noise_buffer = new_noise_buffer - interval_length
-				if abs(old_noise_buffer - new_noise_buffer) > buffer_difference:
+				if abs(old_noise_buffer[0][0] - new_noise_buffer[0][0]) > buffer_difference:
 					logging.info("Looking for smaller noise buffer.")
+				else:
+					continue_search = False
+				old_noise_buffer = new_noise_buffer
+				#new_noise_buffer = new_noise_buffer - interval_length
 
 			except eo.NoParentsLeftNoise as e:
 				del zmco_double_copy 
 				logging.info("No solution with current noise buffer.")
 
-				# increase noise buffer
-				new_noise_buffer = new_noise_buffer + interval_length
+				## increase noise buffer
+				#new_noise_buffer = new_noise_buffer + interval_length
 
 			# decrease interval length
 			interval_length = interval_length / 2
+
+		# get subclone/sample specific noise buffers
+		subsam_specific_noise_buffers = get_subclone_specific_noise_buffer(old_noise_buffer, ppm, avFreqs, frequencies)
+		best_subsam_specific_noise_buffers = get_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
+		# check whether result exists for best noise buffers
+		try:
+			# copy objects so that the original stay unchanged during the Subpoplar try
+			zmco_double_copy = copy.deepcopy(zmco)
+
+			dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, best_subsam_specific_noise_buffers, 
+				frequencies, seg_num, gain_num, loss_num, CNVs, my_lins)
+
+			# if Subpoplar was successful, delete variables of previous Subpoplar run and rename new ones
+			del zmco_copy 
+			zmco_copy = zmco_double_copy
+			logging.info("Solution with subclone and sample specific noise buffer found.")
+			old_noise_buffer = best_subsam_specific_noise_buffers
+			smallest_buffer_set_found = True
+
+		# if not, do with second best noise buffer
+		except eo.NoParentsLeftNoise as e:
+			second_subsam_specific_noise_buffers = get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
+
+			# only do if second noise buffer set is different from the first
+			if not (best_subsam_specific_noise_buffers == second_subsam_specific_noise_buffers).all():
+
+				del zmco_double_copy
+
+				try:
+					# copy objects so that the original stay unchanged during the Subpoplar try
+					zmco_double_copy = copy.deepcopy(zmco)
+
+					dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, second_subsam_specific_noise_buffers, 
+						frequencies, seg_num, gain_num, loss_num, CNVs, my_lins)
+
+					# if Subpoplar was successful, delete variables of previous Subpoplar run and rename new ones
+					del zmco_copy 
+					zmco_copy = zmco_double_copy
+					logging.info("Solution with subclone and sample specific noise buffer found.")
+					old_noise_buffer = second_subsam_specific_noise_buffers
+					smallest_buffer_set_found = True
+
+				except eo.NoParentsLeftNoise as e:
+					logging.info("No solution with subclone and sample specific noise buffer was found. Use depth-first search to find MAR with smallest noise buffers.")
 				
 	if allow_noise == True and buffer_was_output == False:
-		buffer_was_output = True
-		logging.info("Subpoplar finished with noise buffer of {0}.".format(old_noise_buffer))
-		if noise_buffer != old_noise_buffer:
-			logging.info("Binary search found a smaller buffer. First buffer was {0}.".format(noise_buffer))
 
-	return dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output
+		buffer_was_output = True
+		returned_noise_buffer = old_noise_buffer
+		logging.info("Subpoplar finished with noise buffer of {0}.".format(np.array2string(old_noise_buffer).replace('\n', ',')))
+
+	return dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found
+
+# if a subclone has multiple possible parents, computes their parent and sample specific noise buffers, sorted from smallest to largest
+def get_subclone_specific_noise_buffer(noise_buffer, ppm, avFreqs, frequencies):
+	lin_num = len(ppm)
+	freq_num = len(frequencies[0])
+	subsam_specific_noise_buffers = [None] * lin_num
+	subsam_specific_noise_buffers[0] = [np.asarray([0] * freq_num)]
+
+	# check all subclones
+	for k in range(1, lin_num):
+		possible_parents = np.where(ppm[k] == 1)[0]
+		single_subsam = []
+		# if subclone is already definite child, use the noise buffer value
+		if len(possible_parents) == 1:
+			single_subsam.append(noise_buffer[k])
+		# if subclone has multiple possible parents, compute difference of available frequencies and frequencies of subclone,
+		#	which could become a noise buffer when smaller 0
+		# sort values
+		elif len(possible_parents) > 1:
+			for k_star in possible_parents:
+				diff_values = avFreqs[k_star] - frequencies[k]
+				diff_values[diff_values > 0] = 0
+				single_subsam.append(abs(np.minimum(np.asarray([0]*freq_num), diff_values)))
+			single_subsam.sort(key=np.mean)
+		else:
+			raise eo.MyException("Should never happen")
+		subsam_specific_noise_buffers[k] = single_subsam
+
+	return subsam_specific_noise_buffers
+
+def get_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
+	my_set = [subsam_specific_noise_buffers[k][0].tolist() for k in range(len(subsam_specific_noise_buffers))]
+	return np.asarray(my_set)
+
+def get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
+	lin_num = len(subsam_specific_noise_buffers)
+
+	# find smallest other best value
+	second_smallest = float("inf")
+	second_smallest_index = -1
+	for k in range(1, lin_num):
+		tmp_smallest = np.sum(subsam_specific_noise_buffers[k][0])
+		i = 1
+		# check first value of subclone k that is different than smallest value of k
+		while (i < len(subsam_specific_noise_buffers[k])):
+			if np.sum(subsam_specific_noise_buffers[k][i]) == tmp_smallest:
+				i = i + 1
+			else:
+				if np.sum(subsam_specific_noise_buffers[k][i]) < np.sum(second_smallest):
+					second_smallest = subsam_specific_noise_buffers[k][i]
+					second_smallest_index = k
+				break
+
+	# get smallest set
+	my_set = get_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
+	# adapt smallest set if possible
+	if second_smallest_index != -1:
+		my_set[second_smallest_index] = second_smallest
+
+	return my_set
 
 def go_submarine(parents_file=None, freq_file=None, cna_file=None, ssm_file=None, seg_file=None, userZ_file=None, userSSM_file=None, output_prefix=None,
 	overwrite=False):
@@ -1764,7 +1884,12 @@ def build_initial_pps_for_all(ppm):
 #   definite parent, updates follow
 def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms,
 	noise_buffer=0):
+
 	lin_num = len(zmco.z_matrix)
+	freq_num = len(linFreqs[0])
+	if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+		noise_buffer = np.zeros(lin_num*freq_num).reshape(lin_num,freq_num)
+
 	# available frequencies are initialized
 	avFreqs = copy.deepcopy(linFreqs)
 	# get possible parents of all lineages
@@ -1783,7 +1908,7 @@ def sum_rule_algo_outer_loop(linFreqs, zmco, seg_num, zero_count, gain_num, loss
 		# iterate over all possible parents
 		for k_star in possible_parents:
 			# if k_star cannot be a possible parent
-			if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY+noise_buffer).any():
+			if defparent[k] != k_star and np.greater(linFreqs[k], avFreqs[k_star]+cons.EPSILON_FREQUENCY+noise_buffer[k]).any():
 				ppm[k][k_star] = 0
 
 				posdes = get_possible_descendants(zmco.z_matrix, k_star, k)
@@ -1861,7 +1986,7 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 	avFreqs_tmp = np.subtract(avFreqs[kstar], linFreqs[k])
 	
 	# available frequency is not allowed to be smaller than 0
-	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY + noise_buffer < 0, True, False).any():
+	if np.where(avFreqs_tmp + cons.EPSILON_FREQUENCY + noise_buffer[k] < 0, True, False).any():
 		still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, zero_count, gain_num, loss_num, CNVs, present_ssms)
 		check_initial_possible_parents(k, linFreqs, avFreqs, initial_pps_for_all, ppm, last)
 
@@ -1875,7 +2000,7 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 		kprime = possible_children.pop(0)
 	    
 		# if k* cannot be possible parent of k'
-		if np.greater(linFreqs[kprime], avFreqs[kstar] + cons.EPSILON_FREQUENCY + noise_buffer).any():
+		if np.greater(linFreqs[kprime], avFreqs[kstar] + cons.EPSILON_FREQUENCY + noise_buffer[kprime]).any():
 			ppm[kprime][kstar] = 0
 			
 			posdes = get_possible_descendants(zmco.z_matrix, kstar, kprime)
@@ -1898,7 +2023,7 @@ def make_def_child(kstar, k, last, ppm, defparent, linFreqs, avFreqs, zmco, seg_
 	return True
 
 
-def compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps):
+def compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps, lin_num):
 	assert isinstance(linFreqs, np.ndarray)
 
 	# difference between available frequencies and frequency of lineage k
@@ -1906,7 +2031,8 @@ def compute_minimal_noise_buffer(k, linFreqs, avFreqs_from_initial_pps):
 	# for each possible parent, the most negative value is taken
 	max_diffs = np.amin(diff_freq, axis=1) * (-1)
 	# minimal noise buffer is chosen
-	minimal_noise_buffer = np.min(max_diffs)
+	freq_num = len(linFreqs[0])
+	minimal_noise_buffer = np.asarray([np.min(max_diffs)]*lin_num*freq_num).reshape(lin_num,freq_num)
 
 	return minimal_noise_buffer
 
@@ -2561,10 +2687,13 @@ def update_Z_triplet(x, y, s):
 # checks the crossing rule and adapts the Z-matrix if necessary
 def check_crossing_rule_function(my_lineages, z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, noise_buffer=0):
     lin_num = len(my_lineages)
+    freq_num = len(my_lineages[0].freq)
+    if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+    	noise_buffer = np.zeros(lin_num*freq_num).reshape(lin_num,freq_num)
 
     for k in range(1, lin_num):
         for k_prime in range(k+1, lin_num):
-            no_violation = (np.asarray(my_lineages[k].freq) + cons.EPSILON_FREQUENCY + noise_buffer >= np.asarray(my_lineages[k_prime].freq)).all()
+            no_violation = (np.asarray(my_lineages[k].freq) + cons.EPSILON_FREQUENCY + noise_buffer[k_prime] >= np.asarray(my_lineages[k_prime].freq)).all()
             if no_violation == False:
                 # make relationship absent
                 if z_matrix[k][k_prime] == 1:
@@ -4141,7 +4270,7 @@ if __name__ == '__main__':
 
     if args.dfs:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
-                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite)
+                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer=args.noise_buffer)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
 		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise,
