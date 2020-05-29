@@ -648,7 +648,7 @@ def upper_bound_number_reconstructions(ppm):
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
 def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False,
-	noise_buffer=0, find_best_noise_buffer=False):
+	noise_buffer_file=None, find_best_noise_buffer=False):
 
 	# get ppm data
 	ppm = np.loadtxt(ppm_file, delimiter=",")
@@ -672,6 +672,10 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 		my_ssms = oio.read_ssms(ssm_file, phasing=False, use_SSM_index=True)
 	# get number of segments
 	seg_num = get_seg_num(my_cnas, my_ssms)
+	# get noise buffer
+	noise_buffer = 0
+	if noise_buffer_file is not None:
+		noise_buffer = np.loadtxt(noise_buffer_file, delimiter=",")
 
 	# create filenames
 	valid_count_file = "{0}.valid_count.txt".format(output_prefix)
@@ -715,8 +719,8 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	if find_best_noise_buffer:
 		np.savetxt(my_MAR_file, my_MAR, delimiter=",", fmt='%1.0f')
 		np.savetxt(ppm_MAR_file, final_ppm, delimiter=",", fmt='%1.0f')
-		np.savetxt(noisebuffer_MAR_file, largest_necessary_bufferi, delimiter=",")
-		np.savetxt(neg_avFreq_MAR_file, neg_avFreq)
+		np.savetxt(noisebuffer_MAR_file, largest_necessary_buffer, delimiter=",")
+		np.savetxt(neg_avFreq_MAR_file, np.asarray([neg_avFreq]))
 
 
 # given a subclonal reconstruction with ambiguous lineage relationships, this function iterivly tries all possible
@@ -4384,6 +4388,7 @@ if __name__ == '__main__':
     parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise buffer to which Subpoplar can be extended")
     parser.add_argument("--noise_buffer", default=0, type=float, help ="noise buffer with which Subpoplar starts")
+    parser.add_argument("--noise_buffer_file", default=None, type=str, help ="file with noise buffer")
     parser.add_argument("--take_first_buffer", action='store_true', help="doesn't search lowest possible noise buffer but takes first found one")
     parser.add_argument("--find_best_noise_buffer", action='store_true', help="use depth-first search to find MAR with best possible noise buffer")
     args = parser.parse_args()
@@ -4398,7 +4403,7 @@ if __name__ == '__main__':
 
     if args.dfs or args.find_best_noise_buffer:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
-                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer=args.noise_buffer,
+                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer_file=args.noise_buffer_file,
 		find_best_noise_buffer=args.find_best_noise_buffer)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
