@@ -93,3 +93,5 @@ class RelationshipAlreadySet(MyException):
 	pass
 class ReconstructionInvalid(MyException):
 	pass
+class SmallerNegAvFreq(MyException):
+	pass

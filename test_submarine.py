@@ -14,6 +14,119 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def construct_some_data(self):
+		# construct the data
+		# Z-matrix
+		z_matrix = np.asarray([
+			[-1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+			[-1, -1, 0, 0, 0, 0, 0, 0, 0, 1],
+			[-1, -1, -1, -1, -1, 1, 0, 0, 1, -1],
+			[-1, -1, -1, -1, 1, -1, 0, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1, 0, 0, 1, -1],
+			[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+			[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+			])
+
+		# undefined relationships
+		K = 1
+		KP = 2
+		USED_P1 = 4
+		USED_M1 = 5
+		undef_rels = []
+		undef_rels.append([0, 1, 2, None, False, True])
+		undef_rels.append([0, 1, 3, None, True, False])
+		undef_rels.append([0, 1, 6, None, True, True])
+		undef_rels.append([0, 2, 6, None, True, True])
+		undef_rels.append([0, 3, 6, None, True, True])
+		undef_rels.append([0, 5, 6, None, True, True])
+		undef_rels.append([0, 5, 7, None, True, True])
+		number_undef_rels = 7
+		
+		# possible parent matrix and other things for Subpoplar
+		ppm = np.asarray([
+			[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+			[1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+			[1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+			[1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+			[0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+			[0, 0, 1, 1, 0, 1, 0, 0, 0, 0],
+			[0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+			[0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+			])
+		linFreqs = np.asarray([[1.0, 1.0], [0.6, 0.6], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.25, 0.25], [0.2, 0.2]])
+		noise_buffer = np.asarray([[0.5, 0.5]] * 10)
+		last = 9
+		defparent = None
+		avFreqs = None
+		initial_pps_for_all = None
+		defparent, avFreqs = submarine.get_definite_parents_available_frequencies(linFreqs, ppm)
+		initial_pps_for_all = submarine.build_initial_pps_for_all(ppm)
+
+		# building the subclonal reconstruction
+		lin0 = lineage.Lineage([1, 2, 3, 4, 5, 6, 7, 8, 9], [1.0, 1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([9], [0.6, 0.6], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([5, 8], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([4], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin4 = lineage.Lineage([], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin5 = lineage.Lineage([8], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin6 = lineage.Lineage([], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin7 = lineage.Lineage([], [0.5, 0.5], [], [], [], [], [], [], [], [])
+		lin8 = lineage.Lineage([], [0.25, 0.25], [], [], [], [], [], [], [], [])
+		lin9 = lineage.Lineage([], [0.2, 0.2], [], [], [], [], [], [], [], [])
+		my_lineages = [lin0, lin1, lin2, lin3, lin4, lin5, lin6, lin7, lin8, lin9]
+		seg_num = 1
+		lin_num = 10
+		zero_count = 100
+		gain_num = []
+		loss_num = []
+		CNVs = []
+		present_ssms = []
+		ssm_infl_cnv_same_lineage = []
+		submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lineages, ssm_infl_cnv_same_lineage)
+		zero_count, triplet_xys, triplet_ysx, triplet_xsy = submarine.check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lin_num)
+		matrix_after_first_round = np.copy(z_matrix)
+		zmco = submarine.Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, matrix_after_first_round)
+		sbclr = submarine.Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs, initial_pps_for_all)
+
+		return z_matrix, K, KP, USED_P1, USED_M1, undef_rels, number_undef_rels, ppm, linFreqs, noise_buffer, last, defparent, avFreqs, initial_pps_for_all, defparent, initial_pps_for_all, my_lineages, seg_num, lin_num, zero_count, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage, sbclr
+
+	def test_compute_MAR_noise_buffer(self):
+
+		z_matrix, K, KP, USED_P1, USED_M1, undef_rels, number_undef_rels, ppm, linFreqs, noise_buffer, last, defparent, avFreqs, initial_pps_for_all, defparent, initial_pps_for_all, my_lineages, seg_num, lin_num, zero_count, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage, sbclr = self.construct_some_data()
+
+		# true output
+		#true_largest_buffer = np.asarray([[0, 0], [0, 0], [0.1, 0.1], [0, 0], [0, 0], [0, 0], [0.5, 0.5], [0.5, 0.5], [0, 0], [0.1, 0.1]])
+		true_largest_buffer = np.asarray([[0, 0], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5],])
+		true_MAR = np.copy(z_matrix)
+		true_MAR[1][3] = 1
+		true_MAR[1][4] = 1
+		true_MAR[1][2] = -1
+		true_MAR[1][5] = -1
+		true_MAR[1][8] = -1
+		true_ppm = np.copy(ppm)
+		true_ppm[3][0] = 0
+		true_ppm[2][1] = 0
+
+		# call function
+		z_matrix, largest_necessary_buffer, ppm = submarine.compute_MAR_noise_buffer(number_undef_rels, undef_rels, USED_P1, USED_M1, K, KP, sbclr, 
+			last, linFreqs, seg_num, zero_count, gain_num, loss_num, CNVs, noise_buffer)
+
+		# compare
+		self.assertTrue(np.array_equal(true_largest_buffer, largest_necessary_buffer))
+		self.assertTrue(np.array_equal(true_MAR, z_matrix))
+		self.assertTrue(np.array_equal(true_ppm, ppm))
+
+	def test_compute_neg_avFreqs(self):
+
+		avFreqs = np.asarray([[0.1, 0.2], [-0.7, 0.3], [0.3, 0.4], [-0.01, -0.3]])
+
+		self.assertTrue(submarine.compute_neg_avFreqs(avFreqs) == -1.01)
+
 	def test_get_subclone_specific_noise_buffer(self):
 
 		# 4 lins, lin 3 has three possible parents
@@ -38,6 +151,16 @@ class ModelTest(unittest.TestCase):
 		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.2, 0.2], [0.2, 0.2], [0, 0]])
 
 		my_set = submarine.get_smallest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+
+		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+
+	def test_get_largest_subclone_specific_noise_buffer_set(self):
+
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0, 0]), np.asarray([0.2, 0.2])], [np.asarray([0.2, 0.2])], 
+			[np.asarray([0, 0]), np.asarray([0, 0.1]), np.asarray([0.1, 0.2])]]
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.2, 0.2], [0.2, 0.2], [0.1, 0.2]])
+
+		my_set = submarine.get_largest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
 
 		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
 
@@ -1160,6 +1283,28 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(total_count, 2)
 		self.assertEqual(valid_count, 2)
 
+		# example where best noise buffer is found
+		z_matrix, K, KP, USED_P1, USED_M1, undef_rels, number_undef_rels, ppm, linFreqs, noise_buffer, last, defparent, avFreqs, initial_pps_for_all, defparent, initial_pps_for_all, my_lineages, seg_num, lin_num, zero_count, gain_num, loss_num, CNVs, present_ssms, ssm_infl_cnv_same_lineage, sbclr = self.construct_some_data()
+		z_matrix[1][3] = 1
+		z_matrix[1][4] = 1
+		z_matrix[1][2] = -1
+		z_matrix[1][5] = -1
+		z_matrix[1][8] = -1
+		ppm[3][0] = 0
+		ppm[2][1] = 0
+
+		true_buffer = np.asarray([[0.5, 0.5]] * 10)
+		true_buffer[0] = [0, 0]
+
+		total_count, valid_count, my_MAR, final_ppm, largest_necessary_buffer, neg_avFreq = submarine.new_dfs(z_matrix, my_lineages, seg_num, 
+			analyze_ambiguity_during_runtime=True, noise_buffer=noise_buffer, find_best_noise_buffer=True, ppm=ppm)
+
+		self.assertEqual(neg_avFreq, -1.9)
+		self.assertEqual(valid_count, 3)
+		self.assertEqual(total_count, 12)
+		self.assertTrue((largest_necessary_buffer == true_buffer).all())
+		self.assertTrue((my_MAR == z_matrix).all())
+		self.assertTrue((final_ppm == ppm).all())
 
 		# more tests at test_compute_number_ambiguous_recs_and_new_dfs
 

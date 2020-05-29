@@ -19,6 +19,40 @@ import copy
 from itertools import compress
 import json
 
+# given available frequencies, sum up those that are negative
+def compute_neg_avFreqs(avFreqs):
+	tmp_avFreqs = np.copy(avFreqs)
+	tmp_avFreqs[tmp_avFreqs > 0] = 0
+	return np.sum(tmp_avFreqs)
+
+# computes the MAR and the corresponding noise buffer used
+def compute_MAR_noise_buffer(number_undef_rels, undef_rels, USED_P1, USED_M1, K, KP, sbclr, last, linFreqs, seg_num, zero_count, gain_num,
+	loss_num, CNVs, noise_buffer):
+	# check all parental relationships
+	for j in range(number_undef_rels):
+		# ambiguous value
+		value = 0
+		# relationship is only present
+		if undef_rels[j][USED_P1] == True:
+			if undef_rels[j][USED_M1] == False:
+				value = 1
+		# relationship is only absent
+		else:
+			if undef_rels[j][USED_M1] == True:
+				value = -1
+
+		# update relationship
+		if value != 0:
+			update_ancestry(value, undef_rels[j][K], undef_rels[j][KP], last=last, ppm=sbclr.ppm, defparent=sbclr.defparent, 
+				linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
+				zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
+				noise_buffer=noise_buffer, initial_pps_for_all=sbclr.initial_pps_for_all)
+	
+	# get noise buffer set
+	subsam_specific_noise_buffers = get_subclone_specific_noise_buffer(noise_buffer, sbclr.ppm, sbclr.avFreqs, linFreqs)
+	largest_necessary_buffer = get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
+
+	return sbclr.zmco.z_matrix, largest_necessary_buffer, sbclr.ppm
 
 def reorder_matrix_according_to_mapping(my_matrix, mapping):
 	lin_num = len(my_matrix)
@@ -74,8 +108,15 @@ def combine_different_submars(submars, coeffs=[], uniform=False, use_ppm=False):
 	return av_submar
 
 def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=-1, ppm=None, test_iteration=False,
-	test_reconstructions=False, analyze_ambiguity_during_runtime=False, noise_buffer=0):
-	
+	test_reconstructions=False, analyze_ambiguity_during_runtime=False, noise_buffer=0, find_best_noise_buffer=False,
+	converted_matrix=False):
+
+	# ensure that input data is correct
+	if find_best_noise_buffer:
+		assert ppm is not None
+	if z_matrix[0][0] == 0:
+		convert_zmatrix_for_internal_use(z_matrix)
+		converted_matrix = True
 	z_matrix = np.asarray(z_matrix)
 
 	total_count = 0
@@ -148,6 +189,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 
 	# pointer i iterates through list with undefined relationships
 	i = 0
+	neg_avFreq = -float("inf")
 	while i < number_undef_rels + 1 and number_undef_rels != 0:
 		# current relationship is undefined
 		if i < number_undef_rels and undef_rels[i][REL] == 0:
@@ -169,10 +211,15 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 					zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
 					noise_buffer=noise_buffer, initial_pps_for_all=sbclr.initial_pps_for_all)
+				# if best noise buffer should be found
+				if find_best_noise_buffer:
+					# negative available frequency is smaller
+					if compute_neg_avFreqs(sbclr.avFreqs) < neg_avFreq:
+						raise eo.SmallerNegAvFreq("Better negative frequencies found")
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
-				eo.RelationshipAlreadySet) as e:
-				# update not possible
+				eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
+				# update not possible or noise buffer was worse
 				# thus, count one tree that was enumerated
 				total_count += 1
 				if total_count % 100 == 0:
@@ -186,7 +233,8 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 				# update relationship in subclonal reconstruction to absent
 				total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_buffer=noise_buffer)
+					gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_buffer=noise_buffer,
+					neg_avFreq=neg_avFreq, find_best_noise_buffer=find_best_noise_buffer)
 				undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is present
@@ -203,7 +251,8 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 			else:
 				sbclr = copy.deepcopy(undef_rels[i-1][SBCLR])
 			total_count, i = update_sbclr_dfs(-1, undef_rels[i][K], undef_rels[i][KP], last, sbclr, seg_num, zero_count, 
-				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_buffer=noise_buffer)
+				gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs, noise_buffer=noise_buffer,
+				neg_avFreq=neg_avFreq, find_best_noise_buffer=find_best_noise_buffer)
 			undef_rels[i][SBCLR] = sbclr
 
 		# current relationship is absent
@@ -232,12 +281,13 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 			if test_iteration:
 				all_options.append([x[REL] for x in undef_rels])
 				continue
+
 			# current subclonal reconstruction is complete
 			total_count += 1
 			if total_count % 100 == 0:
 				logging.info("Total count: {0}".format(total_count))
 
-			# check sum rule
+			# sum rule is satisfied, hence, reconstruction is valid
 			if check_sum_rule(my_lineages, undef_rels[i][SBCLR].zmco.z_matrix, noise_buffer=noise_buffer):
 				valid_count += 1
 				if valid_count % 100 == 0:
@@ -247,11 +297,37 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 						used_m1 = [x[USED_M1] for x in undef_rels]
 						logging.info("Ambiguity: {0}".format(np.logical_and(used_p1, used_m1).all()))
 
+				# if smallest noise buffer should be found
+				if find_best_noise_buffer:
+					current_neg_avFreq = compute_neg_avFreqs(undef_rels[i][SBCLR].avFreqs)
+					# if current negative available frequencies are larger than the ones of a previous run, better noise buffer is found
+					if current_neg_avFreq > neg_avFreq:
+						# if valid count >= 100: output that better noise buffer was found because we already printed out some valid counts in log file
+						if valid_count >= 100:
+							logging.info("Better noise buffer was found, valid count set back to 1")
+
+						valid_count = 1
+						neg_avFreq = current_neg_avFreq
+						for j in range(number_undef_rels):
+							undef_rels[j][USED_P1] = False
+							undef_rels[j][USED_M1] = False
+
 				# if Z-matrix should be written to file and maximum number in file is not reached yet
 				if filename is not None and valid_count <= count_threshold:
-					with open(filename, "a") as f:
-						my_string = json.dumps(convert_zmatrix_0_m1(undef_rels[i][SBCLR].zmco.z_matrix))
-						f.write("{0}\n".format(my_string))
+					
+					if converted_matrix:
+						convert_zmatrix_to_presentation_mode(undef_rels[i][SBCLR].zmco.z_matrix)	
+					if valid_count == 1:
+						with open(filename, "w") as f:
+							my_string = json.dumps(convert_zmatrix_0_m1(undef_rels[i][SBCLR].zmco.z_matrix))
+							f.write("{0}\n".format(my_string))
+					else:
+						with open(filename, "a") as f:
+							my_string = json.dumps(convert_zmatrix_0_m1(undef_rels[i][SBCLR].zmco.z_matrix))
+							f.write("{0}\n".format(my_string))
+					if converted_matrix:
+						convert_zmatrix_for_internal_use(undef_rels[i][SBCLR].zmco.z_matrix)
+
 				# if used relationships should be anaylzed during runtime
 				if analyze_ambiguity_during_runtime:
 					for j in range(number_undef_rels):
@@ -261,9 +337,11 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 							undef_rels[j][USED_M1] = True
 						else:
 							raise eo.MyException("should never happen")
+
 				# testing whether function allows and forbids correct subclonal reconstructions
 				if test_reconstructions:
 					reconstructions.append(undef_rels[i][SBCLR])
+
 			# decrease i because it's going to be increased after condistions
 			i -= 1
 
@@ -271,7 +349,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 
 	# if ambiguity should be analyzed during runtime
 	output = ""
-	if analyze_ambiguity_during_runtime:
+	if analyze_ambiguity_during_runtime and find_best_noise_buffer is False:
 		for j in range(number_undef_rels):
 			if undef_rels[j][USED_P1] == False or undef_rels[j][USED_M1] == False:
 				output += "False, {0}, {1}, {2}, {3}\n".format(undef_rels[j][K], undef_rels[j][KP], 
@@ -280,6 +358,11 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 			output = "True\n"
 		elif output == "":
 			output = "All ancestral relationships are defined.\n"
+
+	# if best noise buffer should be found
+	if find_best_noise_buffer:
+		my_MAR, largest_necessary_buffer, final_ppm = compute_MAR_noise_buffer(number_undef_rels, undef_rels, USED_P1, USED_M1, K, KP, sbclr_0, last, 
+			linFreqs, seg_num, zero_count, gain_num, loss_num, CNVs, noise_buffer)
 
 	if number_undef_rels == 0:
 		valid_count = 1
@@ -290,6 +373,11 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	# testing whether function allows and forbids correct subclonal reconstructions
 	if test_reconstructions:
 		return reconstructions, total_count, valid_count
+	# if best noise buffer should be found
+	if find_best_noise_buffer:
+		if converted_matrix:
+			convert_zmatrix_to_presentation_mode(my_MAR)	
+		return total_count, valid_count, my_MAR, final_ppm, largest_necessary_buffer, neg_avFreq
 	# if ambiguity should be analyzed during runtime
 	if analyze_ambiguity_during_runtime:
 		return total_count, valid_count, output
@@ -298,7 +386,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	return total_count, valid_count
 
 def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, loss_num, CNVs, total_count, undef_rels, i, REL, SBCLR, linFreqs,
-	noise_buffer=0):
+	noise_buffer=0, neg_avFreq=0, find_best_noise_buffer=False):
 	undef_rels[i][REL] = value
 	# update relationship in subclonal reconstruction
 	try:
@@ -306,9 +394,14 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 			linFreqs=linFreqs, avFreqs=sbclr.avFreqs, zmco=sbclr.zmco, seg_num=seg_num, 
 			zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=sbclr.present_ssms,
 			noise_buffer=noise_buffer, initial_pps_for_all=sbclr.initial_pps_for_all)
+		# if best noise buffer should be found
+		if find_best_noise_buffer:
+			# negative available frequency is smaller
+			if compute_neg_avFreqs(sbclr.avFreqs) < neg_avFreq:
+				raise eo.SmallerNegAvFreq("Better negative frequencies found")
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
-		eo.RelationshipAlreadySet) as e:
+		eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
 		# update not possible
 		# thus, count one tree that was enumerated
 		total_count += 1
@@ -555,14 +648,16 @@ def upper_bound_number_reconstructions(ppm):
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
 def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False,
-	noise_buffer=0):
+	noise_buffer=0, find_best_noise_buffer=False):
 
 	# get ppm data
 	ppm = np.loadtxt(ppm_file, delimiter=",")
 	# get Z-matrix
 	z_matrix = oio.read_matrix_from_file(z_matrix_file)
+	converted_matrix = False
 	if z_matrix[0][0] == 0:
 		z_matrix = convert_zmatrix_0_m1(z_matrix)	
+		converted_matrix = True
 	# get lineages
 	my_lins = oio.read_JSON_result_file(lin_file)
 	# get CNAs
@@ -581,17 +676,30 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	# create filenames
 	valid_count_file = "{0}.valid_count.txt".format(output_prefix)
 	ambi_file = "{0}.ambiguity.txt".format(output_prefix)
+	my_MAR_file = "{0}.zmatrix.MAR".format(output_prefix)
+	ppm_MAR_file = "{0}.pospars.MAR".format(output_prefix)
+	noisebuffer_MAR_file = "{0}.noisebuffer.MAR".format(output_prefix)
+	neg_avFreq_MAR_file = "{0}.negfreqs.MAR".format(output_prefix)
 	if overwrite == False:
 		oio.raise_if_file_exists(valid_count_file)
 		oio.raise_if_file_exists(ambi_file)
+		if find_best_noise_buffer:
+			oio.raise_if_file_exists(my_MAR_file)
+			oio.raise_if_file_exists(ppm_MAR_file)
+			oio.raise_if_file_exists(noisebuffer_MAR_file)
+			oio.raise_if_file_exists(neg_avFreq_MAR_file)
 	# start logging
 	for handler in logging.root.handlers[:]:
 		logging.root.removeHandler(handler)
 	logging.basicConfig(filename="{0}.dfs.log".format(output_prefix), filemode='w', level=10)	
 
 	# compute correct number and all possible reconstructions
-	total_count, valid_count, output = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, analyze_ambiguity_during_runtime=True,
-		noise_buffer=noise_buffer)
+	if find_best_noise_buffer:
+		total_count, valid_count, my_MAR, final_ppm, largest_necessary_buffer, neg_avFreq = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, 
+			analyze_ambiguity_during_runtime=True, noise_buffer=noise_buffer, converted_matrix=converted_matrix, find_best_noise_buffer=True)
+	else:
+		total_count, valid_count, output = new_dfs(z_matrix, my_lins, seg_num, ppm=ppm, analyze_ambiguity_during_runtime=True,
+			noise_buffer=noise_buffer, converted_matrix=converted_matrix)
 
 	# last logging
 	logging.info("Total number of enumerated trees: {0}".format(total_count))
@@ -600,8 +708,15 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	# write to file
 	with open(valid_count_file, "w") as f:
 		f.write("{0}\n".format(valid_count))
-	with open(ambi_file, "w") as f:
-		f.write(output)
+	# if best noise buffer should be found, result is MAR and there all uncertain entries are ambiguous, also, no output is returned
+	if not find_best_noise_buffer:
+		with open(ambi_file, "w") as f:
+			f.write(output)
+	if find_best_noise_buffer:
+		np.savetxt(my_MAR_file, my_MAR, delimiter=",", fmt='%1.0f')
+		np.savetxt(ppm_MAR_file, final_ppm, delimiter=",", fmt='%1.0f')
+		np.savetxt(noisebuffer_MAR_file, largest_necessary_bufferi, delimiter=",")
+		np.savetxt(neg_avFreq_MAR_file, neg_avFreq)
 
 
 # given a subclonal reconstruction with ambiguous lineage relationships, this function iterivly tries all possible
@@ -1497,6 +1612,10 @@ def get_subclone_specific_noise_buffer(noise_buffer, ppm, avFreqs, frequencies):
 
 def get_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
 	my_set = [subsam_specific_noise_buffers[k][0].tolist() for k in range(len(subsam_specific_noise_buffers))]
+	return np.asarray(my_set)
+
+def get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
+	my_set = [subsam_specific_noise_buffers[k][-1].tolist() for k in range(len(subsam_specific_noise_buffers))]
 	return np.asarray(my_set)
 
 def get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
@@ -4266,6 +4385,7 @@ if __name__ == '__main__':
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise buffer to which Subpoplar can be extended")
     parser.add_argument("--noise_buffer", default=0, type=float, help ="noise buffer with which Subpoplar starts")
     parser.add_argument("--take_first_buffer", action='store_true', help="doesn't search lowest possible noise buffer but takes first found one")
+    parser.add_argument("--find_best_noise_buffer", action='store_true', help="use depth-first search to find MAR with best possible noise buffer")
     args = parser.parse_args()
 
     allow_noise = False
@@ -4276,9 +4396,10 @@ if __name__ == '__main__':
     if args.take_first_buffer == True:
     	do_binary_search = False
 
-    if args.dfs:
+    if args.dfs or args.find_best_noise_buffer:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
-                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer=args.noise_buffer)
+                cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer=args.noise_buffer,
+		find_best_noise_buffer=args.find_best_noise_buffer)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
 		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise,
