@@ -1112,8 +1112,6 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(ssm2.phase, cons.A)
 		self.assertEqual(ssm3.phase, cons.B)
 
-
-
 	def test_new_dfs(self):
 
 		# testing correct iteration through all settings
@@ -1331,9 +1329,11 @@ class ModelTest(unittest.TestCase):
 
 	def test_go_basic_version(self):
 		# no user constraints, works
+		# noise buffer not needed but nothing happens if it is allowed to use
 		freq_file = "testdata/unittests/frequencies2.csv"
 
-		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, use_logging=False)
+		my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, use_logging=False,
+			allow_noise=True)
 
 		real_z = [
 			[0, 1, 1, 1, 1],
@@ -1401,6 +1401,7 @@ class ModelTest(unittest.TestCase):
 		message = "There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: 0->1,1->2,1->3."
 		self.assertEqual(message, error_message)
 
+
 		# allows noise (#1)
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True)
 
@@ -1428,6 +1429,9 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
+
+		# allows noise but noise not needed (#2.5)
+
 
 		# maximal noise threshold too small (#3)
 		freq_file = "testdata/unittests/frequencies3.csv"

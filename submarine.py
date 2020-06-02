@@ -1491,7 +1491,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 
 	# do a binary search to find a potentially lower buffer
 	# all values in noise buffer are the same for now
-	if do_binary_search == True and allow_noise == True:
+	if do_binary_search == True and allow_noise == True and not (noise_buffer == np.asarray([[0] * freq_num] * lin_num)).all():
 		assert (noise_buffer[0][0] == noise_buffer).all()
 		do_binary_search = False
 
