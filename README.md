@@ -67,6 +67,7 @@ SubMARine produces the following four output files.
 
 `<my_file_name>.log`:
 A log file.
+Amongst other information, it contains a mapping from the subclone IDs to the subclone indices used internally by SubMARine and in all output files.
 
 `<my_file_name>.zmatrix`:
 This file contains the ancestry matrix `Z` in a `json` list. If `Z[k][k'] = 1`, subclone `k` is an ancestor of subclone `k'`, if `Z[k][k'] = 0` subclone `k` is not an ancestor of subclone `k'`, and if `Z[k][k'] = -1`, subclone `k` could be an ancestor of subclone `k'`.
@@ -140,13 +141,28 @@ python3 submarine.py --extended_version --freq_file submarine_example/frequencie
   --userSSM_file submarine_example/userSSM3.csv --output_prefix submarine_example/my_test_extended
 ```
 
-To run SubMARine allowing a noise buffer, add `--allow_noise` to your command, e.g.:
+To run SubMARine accounting for noise in the subclonal frequencies, add `--allow_noise` to your command, e.g.:
 ```
 python3 submarine.py --basic_version --freq_file submarine_example/frequencies4.csv 
   --allow_noise --output_prefix submarine_example/my_test_noise
 ```
+The log file informs whether a subclone-and sample-specific noise buffer set could be found in polynomial time. For the above sample this is the case. Here is another example where this is not the case:
+```
+python3 submarine.py --basic_version --freq_file submarine_example/frequencies5.csv 
+  --allow_noise --output_prefix submarine_example/my_test_noise_2
+```
+In order to find the subclone-and sample-specific noise buffer set, the modified depth-first search can be used:
+```
+python3 submarine.py --find_best_noise_buffer 
+  --possible_parent_file submarine_example/my_test_noise_2.pospars 
+  --z_matrix_file submarine_example/my_test_noise_2.zmatrix 
+  --lineage_file submarine_example/my_test_noise_2.lineage.json 
+  --noise_buffer_file submarine_example/my_test_noise_2.noisebuffer 
+  --output_prefix submarine_example/my_test_noise_2 
+```
+When CNAs and SSMs are given, their files need to be added with `--cna_file` and the `--ssm_file` options.
 
-To start the depth-first search, type:
+To start the depth-first search to find the number of valid completing clone trees and see whether all uncertain entries in the subMAR are truely ambiguos, type:
 ```
 python3 submarine.py --dfs --possible_parent_file submarine_example/my_test_extended.pospars 
   --z_matrix_file submarine_example/my_test_extended.zmatrix 
