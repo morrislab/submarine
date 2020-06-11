@@ -1,9 +1,10 @@
 # SubMARine
 
-SubMARine is a polynomial-time algorithm that builds partial clone trees to approximate cancer evolutionary histories.
+SubMARine is a polynomial-time algorithm that reconstructs cancer evolutionary histories by building partial clone trees.
 It comes in a basic and extended version.
 In the basic version, SubMARine takes a subclonal frequency matrix as input and builds the subMAR and a possible parent matrix.
 The subMAR is a partial clone tree that represents all valid clone trees fitting the input frequencies.
+It is an approximation to the MAR: the maximally-constraint ancestral reconstruction.
 The possible parent matrix indicates the possible parents of each subclone.
 Additionally, SSMs and clonal CNAs can be provided as input.
 The extended version can also work with subclonal CNAs.
@@ -85,15 +86,36 @@ If SubMARine is applied in extended mode, it also produces the following output 
 `<my_file_name>.ssm_phasing.csv`:
 This file contains the phasing information for each SSM. The first column gives the SSM index and the second the phase. Note that `0` means unphased. 
 
+If SubMARine is applied and instructed to account for noise in the subclonal frequencies, it also produces the following output file.
+
+`<my_file_name>.noisebuffer`: 
+This file contains the noise buffer set used to find a valid partial clone tree.
+The noise buffer of subclone `k'` in sample `n` is added to the frequency of sample `n` of possible ancestors and parents when using the crossing rule and the Subpoplar algorithm.
+
 ## Output files of depth-first search
 
-We provide a depth-first search that enumerates all valid and equivalent clone trees completing a clone tree. It produces the following three output files.
+We provide a depth-first search that enumerates all valid and equivalent clone trees completing a partial clone tree. It produces the following three output files.
 
 `<my_file_name>.dfs.log`: A log file containing information about how many trees were considered and how many are valid.
 
 `<my_file_name>.valid_count.txt`: A text file containing the number of valid trees.
 
 `<my_file_name>.ambiguity.txt`: A text file with an analysis of undefined ancestral relationships in the partial clone tree. If the partial clone tree contains no undefined relationships, the text file reads `All ancestral relationships are defined.`. Otherwise, if the MAR was provided as input or if the provided subMAR equals its MAR, the text file reads `True` because all undefined relationships are truely ambiguous. Otherwise the text file provides an analysis of all undefined relationships that take only one defined value in all valid and equivalent clone trees in the following format: `False \t subclone k \t subclone k' \t whether k is an ancestor of k' (with 1 for yes and 0 for no) \t whether k is not an ancestor of k' (with 1 for yes and 0 for no)`
+
+## Output files of modified depth-first search to find subclone- and sample-specific noise buffer set
+
+If the subclone- and sample-specific noise buffer set cannot be found in polynomial time, it can be found with a modified version of the depth-first search.
+This version also produces the two files `<my_file_name>.dfs.log` and `<my_file_name>.valid_count.txt`.
+The file `<my_file_name>.ambiguity.txt`is not generated because in order to find the subclone- and sample-specific noise buffer set, the MAR is produced and hence all uncertain ancestral relationships are ambiguous.
+The MAR and other information are contained in the following four output files:
+
+`<my_file_name>.zmatrix.MAR`: This file contains the ancestral matrix `Z` of the MAR in a comma-separated format.
+
+`<my_file_name>.pospars.MAR`: This file contains the possible parent matrix `\tau` belonging to the MAR in the same format as `<my_file_name>.pospars`.
+
+`<my_file_name>.noisebuffer.MAR`: This file contains the subclone- and sample-specific noise buffer set in the same format as `<my_file_name>.noisebuffer`.
+
+`<my_file_name>.negfreqs.MAR`: This file contains the amount of negative available frequencies used by the MAR-completing clone trees.
 
 ## Running SubMARine
 
