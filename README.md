@@ -1,13 +1,17 @@
 # SubMARine
 
-SubMARine is a polynomial-time algorithm that buils partial clone trees and comes in a basic and extended version.
+SubMARine is a polynomial-time algorithm that builds partial clone trees to approximate cancer evolutionary histories.
+It comes in a basic and extended version.
 In the basic version, SubMARine takes a subclonal frequency matrix as input and builds the subMAR and a possible parent matrix.
 The subMAR is a partial clone tree that represents all valid clone trees fitting the input frequencies.
-The possible parent matrix indicates the possible parents of each clone subclone.
+The possible parent matrix indicates the possible parents of each subclone.
 Additionally, SSMs and clonal CNAs can be provided as input.
 The extended version can also work with subclonal CNAs.
-Here, SubMARine needs as input a subclonal frequency matrix, CNAs as copy number changes assigned to subclones, segments and parental alleles, SSMs assigned to segments and subclones, and an impact matrix, which indicates which CNAs change the mutant copy numbers of which SSMs.
+Here, SubMARine needs as input a subclonal frequency matrix, CNAs as copy number changes assigned to subclones, genome segments and parental alleles, SSMs assigned to genome segments and subclones, and an impact matrix, which indicates which CNAs change the mutant copy numbers of which SSMs.
 SubMARine than reconstructs the extended subMAR, a partial clone tree with SSM phasing that represents all valid and equivalent clone trees fitting the input data, together with a possible parent matrix.
+
+SubMARine assume precisely measured subclonal frequencies.
+In order to deal with subclonal frequencies inferred from noisy mutational frequencies, a noise-buffered version is offered.
 
 ## Input files
 
@@ -69,15 +73,17 @@ This file contains the ancestry matrix `Z` in a `json` list. If `Z[k][k'] = 1`, 
 `<my_file_name>.pospars`:
 This file contains the possible parent matrix `\tau` as a comma-separated text file. If subclone `k` is a possible parent of subclone `k'`, then `\tau[k'][k] = 1`, otherwise `\tau[k'][k] = 0`.
 
-`<my_file_name>.ssm_phasing.csv`:
-This file contains the phasing information for each SSM. The first column gives the SSM index and the second the phase. Note that `0` means unphased. 
-
 `<my_file_name>.lineage.json`:
 This file contains the sorted subclones of the built partial clone tree in `json` format. Each subclone contains a list of SSMs assigned to allele `A` (`ssms_a`) or `B` (`ssms_b`) or being unphased (`ssms`), a list of indices of all descendant subclones (`sublins`), a list with CNAs assigned to allele `A` (`cnvs_a`) or `B` (`cnvs_b`), and a list with the frequencies of the current subclone in all samples (`freq`).
+<br>
+For each present SSM, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0`, phase `B` being `1` and unphased being `2`), its segment index (`seg_index`), and its own index (`index`). The other information (`infl_cnv_same_lin`, `pos`, `chr`, `ref_count`, `variant_count`) are not needed in the context of SubMARine and are thus set to `-1`.
+<br>
+For each present CNA, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), its own index (`index`) and its relative copy number change (`change`). The other information (`start`, `chr`, `end`) are not needed in the context of SubMARine and are thus set to `-1`.
 
-For each SSM, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0`, phase `B` being `1` and unphased being `2`), its segment index (`seg_index`), and its own index (`index`). The other information (`infl_cnv_same_lin`, `pos`, `chr`, `ref_count`, `variant_count`) are not needed in the context of SubMARine and are thus set to `-1`.
+If SubMARine is applied in extended mode, it also produces the following output file.
 
-For each CNA, the following information is given: the subclone it is assigned to (`lineage`), its phase (`phase`, with phase `A` being `0` and phase `B` being `1`), its segment index (`seg_index`), its own index (`index`) and its relative copy number change (`change`). The other information (`start`, `chr`, `end`) are not needed in the context of SubMARine and are thus set to `-1`.
+`<my_file_name>.ssm_phasing.csv`:
+This file contains the phasing information for each SSM. The first column gives the SSM index and the second the phase. Note that `0` means unphased. 
 
 ## Output files of depth-first search
 
