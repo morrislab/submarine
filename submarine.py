@@ -1467,7 +1467,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			seg_num, gain_num, loss_num, CNVs, my_lins)
 	# noise buffer was reached
 	# check whether it can be decreased, then do Subpoplar again
-	except eo.NoParentsLeftNoise as e:
+	except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
 		del zmco_copy 
 
 		# if no noise is allowed, raise error
@@ -1523,7 +1523,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 				old_noise_buffer = new_noise_buffer
 				#new_noise_buffer = new_noise_buffer - interval_length
 
-			except eo.NoParentsLeftNoise as e:
+			except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
 				del zmco_double_copy 
 				logging.info("No solution with current noise buffer.")
 
@@ -1552,7 +1552,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			smallest_buffer_set_found = True
 
 		# if not, do with second best noise buffer
-		except eo.NoParentsLeftNoise as e:
+		except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
 			second_subsam_specific_noise_buffers = get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
 
 			# only do if second noise buffer set is different from the first
@@ -1574,7 +1574,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 					old_noise_buffer = second_subsam_specific_noise_buffers
 					smallest_buffer_set_found = True
 
-				except eo.NoParentsLeftNoise as e:
+				except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
 					logging.info("No solution with subclone and sample specific noise buffer was found. Use depth-first search to find MAR with smallest noise buffers.")
 				
 	if allow_noise == True and buffer_was_output == False:
