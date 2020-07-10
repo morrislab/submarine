@@ -14,6 +14,24 @@ class NoParentsLeftNoise(Exception):
 	def __str__(self):
 		return repr(self.message)
 
+class NoiseBufferTooLarge(Exception):
+	def __init__(self, message):
+		self.message = message
+
+class ZInconsistenceInfo(Exception):
+
+	def __init__(self, x, y, s, v_x, v_y, v_s):
+		self.x = x
+		self.y = y
+		self.s = s
+		# both values for x and y can be present (1) or absent (internally -1 but externally 0)
+		# if value means "absent" chose externally used representation
+		self.v_x = max(0, v_x)
+		self.v_y = max(0, v_y)
+		self.v_s = v_s
+		self.message = "Partial tree rule conflict.\nThe following three relationships are not allowed together: Z({0}, {1}) = {2}, Z({0}, {3}) = {4}, Z({1}, {3}) = {5}.".format(
+			x, y, v_x, s, v_y, v_s)
+
 class NoParentsLeft(MyException):
 	pass
 	

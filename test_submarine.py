@@ -508,42 +508,6 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
 
-		# example #5a) that tests working with noise, without binary search, 2 not allowed to be parent of 3
-		freq_file = "testdata/unittests/frequencies5.csv"
-		cna_file = "testdata/unittests/cnas6.csv"
-		ssm_file = "testdata/unittests/ssms5.csv"
-		impact_file = "testdata/unittests/impact2.csv"
-		user_z_file = "testdata/unittests/userZ_4.csv"
-
-		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 0, 0]])
-		buffer_true = np.asarray([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])
-
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
-			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
-			allow_noise=True, do_binary_search=False, userZ_file=user_z_file)
-
-		self.assertTrue((ppm == ppm_true).all())
-		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
-		self.assertTrue(np.isclose(returned_noise_buffer, buffer_true).all())
-
-
-		# example #5b) that tests working with noise, without binary search, no user Z constraints
-		freq_file = "testdata/unittests/frequencies5.csv"
-		cna_file = "testdata/unittests/cnas6.csv"
-		ssm_file = "testdata/unittests/ssms5.csv"
-		impact_file = "testdata/unittests/impact2.csv"
-
-		ppm_true = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]])
-
-		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
-			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
-			allow_noise=True, do_binary_search=False)
-
-		self.assertFalse(smallest_buffer_set_found)
-		self.assertTrue(np.isclose(returned_noise_buffer, np.asarray([[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]])).all())
-		self.assertTrue((ppm == ppm_true).all())
-		self.assertEqual(ssm_phasing[0], [0, cons.UNPHASED])
-
 		# example #6) that tests working with noise, using binary search
 		freq_file = "testdata/unittests/frequencies5.csv"
 		cna_file = "testdata/unittests/cnas6.csv"
@@ -554,7 +518,7 @@ class ModelTest(unittest.TestCase):
 
 		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
 			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
-			allow_noise=True, do_binary_search=True)
+			allow_noise=True)
 
 		self.assertTrue(smallest_buffer_set_found)
 		self.assertTrue(np.isclose(returned_noise_buffer, np.asarray([[0, 0], [0.1, 0.1], [0.1, 0.1], [0.1, 0.1]])).all())
@@ -1387,12 +1351,21 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(my_lins[2].sublins, [4])
 		self.assertEqual(my_lins[3].sublins, [])
 
-		# with user constraints, doesn't work
+		# with user constraints, doesn't work because of crossing rule conflict
 		freq_file = "testdata/unittests/frequencies2.csv"
 		userZ_file = "testdata/unittests/userZ_2.csv"
 
 		with self.assertRaises(eo.MyException):
 			my_lins, z_matrix, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
+
+		# with user constraints, doesn't work because of eo.ZInconsistence
+		# only possible update leads to forbidden relationship
+		# this could be prevented if a (higher) noise buffer was used
+		userZ_file = "testdata/unittests/userZ_6.csv"
+		freq_file = "testdata/unittests/frequencies9.csv"
+
+		error_message = submarine.go_basic_version(freq_file=freq_file, userZ_file=userZ_file)
+		supposed_message = "Partial tree rule conflict.\nThe following three relationships are not allowed together: Z(2, 5) = 1, Z(2, 6) = 0, Z(5, 6) = 1."
 
 		# no user constraints, doesn't work
 		freq_file = "testdata/unittests/frequencies3.csv"
@@ -1413,14 +1386,28 @@ class ModelTest(unittest.TestCase):
 		true_buffer[0][1] = 0
 
 		self.assertTrue(smallest_buffer_set_found)
-		self.assertTrue(np.isclose(returned_noise_buffer, true_buffer).all())
+		self.assertTrue(np.isclose(returned_noise_buffer, true_buffer, atol=0.00000022).all())
 		self.assertTrue((ppm == real_ppm).all())
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
+		# allow noise (#1.5): noise buffer >1 is necessary
+		freq_file = "testdata/unittests/frequencies10.csv"
+		userZ_file = "testdata/unittests/userZ_7.csv"
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, 
+			allow_noise=True, userZ_file=userZ_file)
+
+		real_ppm = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0], [1, 0, 0, 0]])
+		real_avFreqs = np.asarray([[-1.97], [1], [0.99], [0.98]])
+
+		self.assertTrue((ppm == real_ppm).all())
+		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
+
 		# allows noise, given theshold is large enough (#2)
+		freq_file = "testdata/unittests/frequencies3.csv"
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
-			noise_buffer=np.asarray([0.3]*5*2).reshape(5,2), do_binary_search=False)
+			noise_buffer=np.asarray([0.3]*5*2).reshape(5,2))
 
 		real_ppm = np.asarray([[0, 0, 0, 0, 0], [1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 1, 1, 0, 0], [1, 1, 1, 1, 0],])
 		real_avFreqs = np.asarray([[0.2, 0.2], [0.8, 0.8], [0.3, 0.5], [0.5, 0.3], [0.4, 0.31]])
@@ -1430,14 +1417,12 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
-		# allows noise but noise not needed (#2.5)
-
-
 		# maximal noise threshold too small (#3)
 		freq_file = "testdata/unittests/frequencies3.csv"
 
-		error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.1)
-		self.assertEqual("There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: 0->1,1->2,1->3.", error_message)
+		returned_error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.001)
+		wanted_error_message = "Noise buffer too large.\nAllowed noise buffer of 0.001 is smaller than necessary noise threshold of 0.009999990463256836."
+		self.assertEqual(returned_error_message, wanted_error_message)
 
 		# allows noise, threshold found in second round (#4)
 		freq_file = "testdata/unittests/frequencies4.csv"

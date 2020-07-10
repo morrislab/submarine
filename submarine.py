@@ -217,7 +217,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					if compute_neg_avFreqs(sbclr.avFreqs) < neg_avFreq:
 						raise eo.SmallerNegAvFreq("Better negative frequencies found")
 				undef_rels[i][SBCLR] = sbclr
-			except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
+			except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 				eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
 				# update not possible or noise buffer was worse
 				# thus, count one tree that was enumerated
@@ -400,7 +400,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 			if compute_neg_avFreqs(sbclr.avFreqs) < neg_avFreq:
 				raise eo.SmallerNegAvFreq("Better negative frequencies found")
 		undef_rels[i][SBCLR] = sbclr
-	except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
+	except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
 		eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
 		# update not possible
 		# thus, count one tree that was enumerated
@@ -764,13 +764,13 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 		#				try:
 		#					update_single_z_matrix_entry(1, k, k_prime, zmco_dup)
 		#					new_zmco_list.append(zmco_dup)
-		#				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible) as e:
+		#				except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible) as e:
 		#					pass
 		#				# set entry of current Z-matrix and co object to -1 (relationship absent)
 		#				try:
 		#					update_single_z_matrix_entry(-1, k, k_prime, zmco_list[i])
 		#					new_zmco_list.append(zmco_list[i])
-		#				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible) as e:
+		#				except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible) as e:
 		#					pass
 		#			else:
 		#				# if current entry is not ambiguous, keep current Z-matrix and co object in list for next round
@@ -833,7 +833,7 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_dup, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+				except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
 					eo.NoParentsLeftNoise) as e:
 					pass
 				# set entry of current Z-matrix and co object to -1 (relationship absent)
@@ -845,7 +845,7 @@ def recursive_number_ambiguous_recs(k_current, k_prime_checked, lin_num, zmco_cu
 					count = recursive_number_ambiguous_recs(k, k_prime, lin_num, zmco_current, my_lineages, count, filename, count_threshold,
 						last=last, ppm=ppm, defparent=defparent, linFreqs=linFreqs, avFreqs=avFreqs, seg_num=seg_num,
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms)
-				except (eo.ZInconsistence, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
+				except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft,
 					eo.NoParentsLeftNoise) as e:
 					pass
 				# going back one level
@@ -1201,7 +1201,7 @@ def check_monotonicity(my_cnas):
 					
 def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_file=None, userZ_file=None, userSSM_file=None,
 		output_prefix=None, overwrite=False, use_logging=True, allow_noise=False, noise_buffer=0, maximal_noise=-1,
-		do_binary_search=True, direct_freqs=None, normal_freq_present=False):
+		direct_freqs=None, normal_freq_present=False):
 
 	# check whether output files exist already
 	# create logging file
@@ -1276,16 +1276,22 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
+		dummy, avFreqs, ppm, zmco, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
-			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
-	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
+			maximal_noise=maximal_noise, my_lins=my_lins))
+	except (eo.NoParentsLeft, eo.NoParentsLeftNoise, eo.NoiseBufferTooLarge) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
 		logging.info(message2)
 		logging.info("SubMARine couldn't finish because sum constraint cannot be satisfied.")
-		return
+		return e.message
+	except eo.ZInconsistenceInfo as e:
+		message1, message2 = e.message.split("\n")
+		logging.warning(message1)
+		logging.info(message2)
+		logging.info("Try using a (higher) noise buffer or check user-constraint relationships.")
+		return e.message
 	except eo.MyException as e:
 		raise e
 
@@ -1349,7 +1355,7 @@ def check_lost_alleles_for_basic(del_segments, my_ssms):
 	return True
 
 def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwrite=False, use_logging=True, cna_file=None,
-	ssm_file=None, allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, direct_freqs=None,
+	ssm_file=None, allow_noise=False, noise_buffer=0, maximal_noise=-1, direct_freqs=None,
 	normal_freq_present=False):
 
 	# check whether output files exist already
@@ -1396,15 +1402,21 @@ def go_basic_version(freq_file=None, userZ_file=None, output_prefix=None, overwr
 	frequencies = np.asarray([my_lins[i].freq for i in range(len(my_lins))])
 	try:
 		# crossing rule and sum rule
-		dummy, avFreqs, ppm, zmco, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
+		dummy, avFreqs, ppm, zmco, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
 			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num,
 			gain_num, loss_num, CNVs, allow_noise=allow_noise, noise_buffer=noise_buffer,
-			maximal_noise=maximal_noise, do_binary_search=do_binary_search, my_lins=my_lins))
-	except (eo.NoParentsLeft, eo.NoParentsLeftNoise) as e:
+			maximal_noise=maximal_noise, my_lins=my_lins))
+	except (eo.NoParentsLeft, eo.NoParentsLeftNoise, eo.NoiseBufferTooLarge) as e:
 		message1, message2 = e.message.split("\n")
 		logging.warning(message1)
 		logging.info(message2)
-		logging.info("SubMARine coudn't finish because sum constraint cannot be satisfied.")
+		logging.info("SubMARine couldn't finish because sum constraint cannot be satisfied.")
+		return e.message
+	except eo.ZInconsistenceInfo as e:
+		message1, message2 = e.message.split("\n")
+		logging.warning(message1)
+		logging.info(message2)
+		logging.info("Try using a (higher) noise buffer or check user-constraint relationships.")
 		return e.message
 	except eo.MyException as e:
 		raise e
@@ -1447,7 +1459,7 @@ def do_crossing_absent_and_subpoplar(lin_num, zmco, noise_buffer, frequencies, s
 
 # function to call Subpoplar/sum rule algorithm and that takes care of noise buffer
 def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain_num, loss_num, CNVs,
-	allow_noise=False, noise_buffer=0, maximal_noise=-1, do_binary_search=True, 
+	allow_noise=False, noise_buffer=0, maximal_noise=-1, 
 	buffer_difference=cons.BUFFER_DIFFERENCE, buffer_was_output=False,
 	my_lins=None):
 
@@ -1467,44 +1479,45 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			seg_num, gain_num, loss_num, CNVs, my_lins)
 	# noise buffer was reached
 	# check whether it can be decreased, then do Subpoplar again
-	except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
-		del zmco_copy 
+	except (eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
 
 		# if no noise is allowed, raise error
 		if allow_noise == False:
 			raise e
 
-		# compute new noise buffer
-		noise_buffer = compute_minimal_noise_buffer(e.k, frequencies, e.avFreqs_from_initial_pps, lin_num)
-		# if noise buffer is too high, raise error
-		if maximal_noise > 0 and (noise_buffer > maximal_noise + cons.EPSILON_FREQUENCY).any():
-			logging.warning("Allowed noise buffer of {0} is smaller than necessary noise threshold of {1}.".format(
-				maximal_noise, np.array2string(noise_buffer).replace('\n', ',')))
-			raise e
+		# find start buffer that allows the construction of a partial clone tree
+		old_noise_buffer = np.ones(lin_num*freq_num).reshape(lin_num,freq_num)
+		find_first_buffer = True
+		buffer_counter = 0
+		while (find_first_buffer):
+			try:
+				# copy objects so that the original stay unchanged
+				zmco_double_copy = copy.deepcopy(zmco)
 
-		logging.info("No solution with current noise buffer.")
-		dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found = (
-			outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, 
-			gain_num, loss_num, CNVs, 
-			allow_noise=allow_noise, noise_buffer=noise_buffer, maximal_noise=maximal_noise,
-			buffer_was_output=buffer_was_output, do_binary_search=do_binary_search, my_lins=my_lins))
+				dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, old_noise_buffer,
+					frequencies, seg_num, gain_num, loss_num, CNVs, my_lins)
 
-	# do a binary search to find a potentially lower buffer
-	# all values in noise buffer are the same for now
-	if do_binary_search == True and allow_noise == True and not (noise_buffer == np.asarray([[0] * freq_num] * lin_num)).all():
-		assert (noise_buffer[0][0] == noise_buffer).all()
-		do_binary_search = False
+				# successful, initial buffer was found
+				del zmco_double_copy
+				find_first_buffer = False
+			except (eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
+				del zmco_double_copy
+				old_noise_buffer = old_noise_buffer * 2
 
-		old_noise_buffer = noise_buffer
+			# check that this loop doesn't go forever
+			buffer_counter += 1
+			if buffer_counter == 100 and maximal_noise < old_noise_buffer[0][0]:
+				error_message = "Noise buffer leading to valid subMAR couldn't be found yet.\nNoise buffer is already at {0} if you want the search not to stop at this point, set a larger allowed noise buffer with --maximal_noise.".format(old_noise_buffer[0][0])
+				raise eo.NoiseBufferTooLarge(error_message)
+				
+
+
 		interval_length = old_noise_buffer[0][0] / 2.0
-		#new_noise_buffer = noise_buffer / 2.0
-		#interval_length = new_noise_buffer[0][0] / 2.0
 		continue_search = True
 		while (continue_search):
-			#abs(old_noise_buffer[0][0] - new_noise_buffer[0][0]) > buffer_difference
 			try:
 				new_noise_buffer = old_noise_buffer - interval_length
-				# copy objects so that the original stay unchanged during the Subpoplar try
+				# copy objects so that the original stay unchanged
 				zmco_double_copy = copy.deepcopy(zmco)
 
 				dummy, avFreqs, ppm = do_crossing_absent_and_subpoplar(lin_num, zmco_double_copy, new_noise_buffer, 
@@ -1521,17 +1534,19 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 				else:
 					continue_search = False
 				old_noise_buffer = new_noise_buffer
-				#new_noise_buffer = new_noise_buffer - interval_length
 
-			except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
+			except (eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
 				del zmco_double_copy 
 				logging.info("No solution with current noise buffer.")
 
-				## increase noise buffer
-				#new_noise_buffer = new_noise_buffer + interval_length
-
 			# decrease interval length
 			interval_length = interval_length / 2
+
+		# if noise buffer is too high, raise error
+		if maximal_noise > 0 and (old_noise_buffer > maximal_noise + cons.EPSILON_FREQUENCY).any():
+			error_message = "Noise buffer too large.\nAllowed noise buffer of {0} is smaller than necessary noise threshold of {1}.".format(
+				maximal_noise, old_noise_buffer[0][0])
+			raise eo.NoiseBufferTooLarge(error_message)
 
 		# get subclone/sample specific noise buffers
 		subsam_specific_noise_buffers = get_subclone_specific_noise_buffer(old_noise_buffer, ppm, avFreqs, frequencies)
@@ -1552,7 +1567,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 			smallest_buffer_set_found = True
 
 		# if not, do with second best noise buffer
-		except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
+		except (eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
 			second_subsam_specific_noise_buffers = get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
 
 			# only do if second noise buffer set is different from the first
@@ -1574,7 +1589,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 					old_noise_buffer = second_subsam_specific_noise_buffers
 					smallest_buffer_set_found = True
 
-				except (eo.NoParentsLeftNoise, eo.ZInconsistence) as e:
+				except (eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
 					logging.info("No solution with subclone and sample specific noise buffer was found. Use depth-first search to find MAR with smallest noise buffers.")
 				
 	if allow_noise == True and buffer_was_output == False:
@@ -1583,7 +1598,7 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 		returned_noise_buffer = old_noise_buffer
 		logging.info("Subpoplar finished with noise buffer of {0}.".format(np.array2string(old_noise_buffer).replace('\n', ',')))
 
-	return dummy, avFreqs, ppm, zmco_copy, do_binary_search, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found
+	return dummy, avFreqs, ppm, zmco_copy, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found
 
 # if a subclone has multiple possible parents, computes their parent and sample specific noise buffers, sorted from smallest to largest
 def get_subclone_specific_noise_buffer(noise_buffer, ppm, avFreqs, frequencies):
@@ -2103,7 +2118,7 @@ def still_possible_parents_except_freq(k, initial_pps_for_all, zmco, seg_num, ze
 				update_ancestry(1, pp, k, zmco=copied_zmco, seg_num=seg_num, zero_count=zero_count, gain_num=gain_num, loss_num=loss_num,
 					CNVs=CNVs, present_ssms=copied_present_ssms)
 				still_pps.append(pp)
-			except eo.MyException:
+			except (eo.MyException, eo.ZInconsistenceInfo):
 				pass
 		else:
 			still_pps.append(pp)
@@ -2419,7 +2434,7 @@ def check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lineage
 # present_ssms: 3D list with booleans: [segment][A,B,unphased][lineage]
 # CNVs: list with hash with information in which segments appear which CN changes in which lineages
 # matrix_after_first_round: Z-matrix after the first round
-# can raise exception ZInconsistence when updating of the Z_triplet let to inconsistance
+# can raise exception ZInconsistenceInfo when updating of the Z_triplet let to inconsistance
 def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_s, x, y, s,
 	triplet_xys, triplet_ysx, triplet_xsy, present_ssms=None, CNVs=None, matrix_after_first_round=None,
         last=None, ppm=None, avFreqs=None, linFreqs=None, zmco=None, seg_num=None, gain_num=None, loss_num=None,
@@ -2490,7 +2505,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 			zero_count = update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, 
 				index_pair, present_ssms, CNVs, matrix_after_first_round, last, ppm, avFreqs, linFreqs, zmco, seg_num,
 				gain_num, loss_num, defparent, initial_pps_for_all=initial_pps_for_all, noise_buffer=noise_buffer)
-		except eo.ZInconsistence as e:
+		except eo.ZInconsistenceInfo as e:
 			raise e
 
 		## propagate absence constraints if current relationship was set to present and function was called from sum rule
@@ -2522,7 +2537,7 @@ def update_after_tiplet_change(z_matrix, zero_count, changed_field, v_x, v_y, v_
 # ppm: possible parent matrix
 # avFreqs: available frequencies
 # linFreqs: lineage frequencies
-# can raise exception ZInconsistence when updating of the Z_triplet let to inconsistance
+# can raise exception ZInconsistenceInfo when updating of the Z_triplet let to inconsistance
 # can raise exception ADRelationNotPossible when SSM phasing prevents update of relationships
 def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, triplet_xsy, index_pair,
 	present_ssms=None, CNVs=None, matrix_after_first_round=None, last=None, ppm=None, avFreqs=None, 
@@ -2535,8 +2550,12 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 		# for all triplets, in which the changed value is at the xy position
 		for s in sorted(list(triplet_xys[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
-			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
-				z_matrix[first_index][second_index], z_matrix[second_index][s], z_matrix[first_index][s]))
+			try:
+				changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
+					z_matrix[first_index][second_index], z_matrix[second_index][s], z_matrix[first_index][s]))
+			except eo.ZInconsistence as e:
+				raise eo.ZInconsistenceInfo(first_index, second_index, s, z_matrix[first_index][second_index], z_matrix[second_index][s],
+					z_matrix[first_index][s])
 			# if triplet doesn't contain 0's anymore, remove triplet from all hashs
 			if triplet_zeros == 0:
 				remove_triplet_from_all_hashes(triplet_xys, triplet_ysx, triplet_xsy, x=first_index,
@@ -2575,7 +2594,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# no triplet was found
 	except KeyError:
 		pass
-	except eo.ZInconsistence as e:
+	except eo.ZInconsistenceInfo as e:
 		raise e
 
 	# check whether middle triplets are influenced by change
@@ -2583,8 +2602,12 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 		# for all triplets, in which the changed value is at the xs position
 		for y in sorted(list(triplet_xsy[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
-			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
-				z_matrix[first_index][y], z_matrix[y][second_index], z_matrix[first_index][second_index]))
+			try:
+				changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
+					z_matrix[first_index][y], z_matrix[y][second_index], z_matrix[first_index][second_index]))
+			except eo.ZInconsistence as e:
+				raise eo.ZInconsistenceInfo(first_index, y, second_index, z_matrix[first_index][y], z_matrix[y][second_index],
+					z_matrix[first_index][second_index])
 			# if triplet doesn't contain 0's anymore, remove triplet from all hashs
 			if triplet_zeros == 0:
 				remove_triplet_from_all_hashes(triplet_xys, triplet_ysx, triplet_xsy, x=first_index,
@@ -2622,7 +2645,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# no triplet was found
 	except KeyError:
 		pass
-	except eo.ZInconsistence as e:
+	except eo.ZInconsistenceInfo as e:
 		raise e
 
 	# check whether highest triplets are influenced by change
@@ -2630,8 +2653,12 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 		# for all triplets, in which the changed value is at the ys position
 		for x in sorted(list(triplet_ysx[first_index][second_index].keys()), reverse=True):
 			# update Z triplet
-			changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
-				z_matrix[x][first_index], z_matrix[first_index][second_index], z_matrix[x][second_index]))
+			try:
+				changed, changed_field, triplet_zeros, v_x, v_y, v_s = (update_Z_triplet(
+					z_matrix[x][first_index], z_matrix[first_index][second_index], z_matrix[x][second_index]))
+			except eo.ZInconsistence as e:
+				raise eo.ZInconsistenceInfo(x, first_index, second_index, z_matrix[x][first_index], z_matrix[first_index][second_index],
+					z_matrix[x][second_index])
 			# if triplet doesn't contain 0's anymore, remove triplet from all hashs
 			if triplet_zeros == 0:
 				remove_triplet_from_all_hashes(triplet_xys, triplet_ysx, triplet_xsy, x=x,
@@ -2669,7 +2696,7 @@ def update_Z_matrix_iteratively(z_matrix, zero_count, triplet_xys, triplet_ysx, 
 	# no triplet was found
 	except KeyError:
 		pass
-	except eo.ZInconsistence as e:
+	except eo.ZInconsistenceInfo as e:
 		raise e
 
 	return zero_count
@@ -4389,7 +4416,6 @@ if __name__ == '__main__':
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise buffer to which Subpoplar can be extended")
     parser.add_argument("--noise_buffer", default=0, type=float, help ="noise buffer with which Subpoplar starts")
     parser.add_argument("--noise_buffer_file", default=None, type=str, help ="file with noise buffer")
-    parser.add_argument("--take_first_buffer", action='store_true', help="doesn't search lowest possible noise buffer but takes first found one")
     parser.add_argument("--find_best_noise_buffer", action='store_true', help="use depth-first search to find MAR with best possible noise buffer")
     args = parser.parse_args()
 
@@ -4397,23 +4423,17 @@ if __name__ == '__main__':
     if args.allow_noise == True or args.noise_buffer > 0:
     	allow_noise = True
 
-    do_binary_search = True
-    if args.take_first_buffer == True:
-    	do_binary_search = False
-
     if args.dfs or args.find_best_noise_buffer:
         depth_first_search(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file, lin_file=args.lineage_file,
                 cna_file=args.cna_file, ssm_file=args.ssm_file, output_prefix=args.output_prefix, overwrite=args.overwrite, noise_buffer_file=args.noise_buffer_file,
 		find_best_noise_buffer=args.find_best_noise_buffer)
     elif args.basic_version:
         go_basic_version(freq_file=args.freq_file, userZ_file=args.userZ_file, output_prefix=args.output_prefix, overwrite=args.overwrite,
-		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise,
-		do_binary_search=do_binary_search)
+		cna_file=args.cna_file, ssm_file=args.ssm_file, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise)
     elif args.extended_version:
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
-		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise,
-		do_binary_search=do_binary_search)
+		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 
