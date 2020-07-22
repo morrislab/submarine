@@ -675,7 +675,7 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	# get noise buffer
 	noise_buffer = 0
 	if noise_buffer_file is not None:
-		noise_buffer = np.loadtxt(noise_buffer_file, delimiter=",")
+		noise_buffer = np.loadtxt(noise_buffer_file, delimiter=",", ndmin=2)
 
 	# create filenames
 	valid_count_file = "{0}.valid_count.txt".format(output_prefix)
