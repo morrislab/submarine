@@ -222,7 +222,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 				# update not possible or noise buffer was worse
 				# thus, count one tree that was enumerated
 				total_count += 1
-				if total_count % 100 == 0:
+				if total_count % 100000 == 0:
 					logging.info("Total count: {0}".format(total_count))
 				# update relationship in subclonal reconstruction to other value
 				undef_rels[i][REL] = -1
@@ -284,13 +284,13 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 
 			# current subclonal reconstruction is complete
 			total_count += 1
-			if total_count % 100 == 0:
+			if total_count % 100000 == 0:
 				logging.info("Total count: {0}".format(total_count))
 
 			# sum rule is satisfied, hence, reconstruction is valid
 			if check_sum_rule(my_lineages, undef_rels[i][SBCLR].zmco.z_matrix, noise_buffer=noise_buffer):
 				valid_count += 1
-				if valid_count % 100 == 0:
+				if valid_count % 1000 == 0:
 					logging.info("Valid count: {0}".format(valid_count))
 					if analyze_ambiguity_during_runtime:
 						used_p1 = [x[USED_P1] for x in undef_rels]
@@ -302,8 +302,8 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 					current_neg_avFreq = compute_neg_avFreqs(undef_rels[i][SBCLR].avFreqs)
 					# if current negative available frequencies are larger than the ones of a previous run, better noise buffer is found
 					if current_neg_avFreq > neg_avFreq:
-						# if valid count >= 100: output that better noise buffer was found because we already printed out some valid counts in log file
-						if valid_count >= 100:
+						# if valid count >= 1000: output that better noise buffer was found because we already printed out some valid counts in log file
+						if valid_count >= 1000:
 							logging.info("Better noise buffer was found, valid count set back to 1")
 
 						valid_count = 1
@@ -405,7 +405,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 		# update not possible
 		# thus, count one tree that was enumerated
 		total_count += 1
-		if total_count % 100 == 0:
+		if total_count % 100000 == 0:
 			logging.info("Total count: {0}".format(total_count))
 		# decrease i because it's going to be increased after condistions in main loop
 		i -= 1
