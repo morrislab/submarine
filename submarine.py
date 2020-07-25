@@ -1596,7 +1596,10 @@ def outer_crossing_absent_and_subpoplar_w_noise(frequencies, zmco, seg_num, gain
 
 		buffer_was_output = True
 		returned_noise_buffer = old_noise_buffer
-		logging.info("Subpoplar finished with noise buffer of {0}.".format(np.array2string(old_noise_buffer).replace('\n', ',')))
+		if (np.zeros(lin_num*freq_num).reshape(lin_num,freq_num) == returned_noise_buffer).all():
+			logging.info("No noise buffer was needed.")
+		else:
+			logging.info("Subpoplar finished with noise buffer of {0}.".format(np.array2string(old_noise_buffer).replace('\n', ',')))
 
 	return dummy, avFreqs, ppm, zmco_copy, buffer_was_output, returned_noise_buffer, smallest_buffer_set_found
 
