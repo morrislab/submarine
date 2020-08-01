@@ -19,6 +19,68 @@ import copy
 from itertools import compress
 import json
 
+def from_files_is_tree_contained_in_partial_clone_tree(ppm_file=None, z_matrix_file=None, complete_tree_file=None, lin_file=None, cna_file=None, ssm_file=None, noise_buffer_file=None):
+
+	# get ppm data, Z-matrix, lineages, CNAs, SSMs, number of segments, noise buffer
+	ppm, z_matrix, converted_matrix, my_lins, seg_num, noise_buffer = read_ppm_zmatrix_and_more(ppm_file, 
+		z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file)
+	# get complete tree
+	tree_z = oio.read_matrix_from_file(tree_z_file)
+	if tree_z[0][0] == 0:
+		tree_z = convert_zmatrix_0_m1(tree_z)	
+
+	# check whether tree is contained in Z matrix
+	return is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, seg_num=seg_num, noise_buffer=noise_buffer)
+
+# given a partial clone tree in z_matrix, does it contain the complete tree tree_z?
+def is_tree_contained_in_partial_clone_tree(z_matrix, my_lineages, ppm, tree_z, seg_num=0, noise_buffer=0):
+
+	# different variables needed for this function
+	lin_num = len(my_lineages)
+	zero_count = lin_num * lin_num
+	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lin_num)
+	matrix_after_first_round = np.copy(z_matrix)
+	# go once through segments and get gains, losses and SSMs
+	gain_num = []
+	loss_num = []
+	CNVs = []
+	present_ssms = []
+	ssm_infl_cnv_same_lineage = []
+	# iterate through all segments once to get all CN changes and SSMs appearances
+	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lineages,
+		ssm_infl_cnv_same_lineage)
+	present_ssms = np.asarray(present_ssms)
+	# combine information to Z-matrix and Co object
+	zmco = Z_Matrix_Co(z_matrix, triplet_xys, triplet_ysx, triplet_xsy, present_ssms, matrix_after_first_round)
+	# get definite parents and available frequencies
+	last = lin_num
+	linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
+	defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
+	initial_pps_for_all = build_initial_pps_for_all(ppm)
+	# adapt noise buffer if necessary
+	freq_num = len(linFreqs[0])
+	if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+		noise_buffer = np.zeros(lin_num*freq_num).reshape(lin_num,freq_num)
+
+	# compare relationships in partial clone tree and complete tree
+	for k in range(1, lin_num):
+		for kp in range(k+1, lin_num):
+			if z_matrix[k][kp] == tree_z[k][kp]:
+				continue
+			elif z_matrix[k][kp] == 0:
+				try:
+					update_ancestry(tree_z[k][kp], k, kp, last=last, ppm=ppm, defparent=defparent, 
+						linFreqs=linFreqs, avFreqs=avFreqs, zmco=zmco, seg_num=seg_num, 
+						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
+						noise_buffer=noise_buffer, initial_pps_for_all=initial_pps_for_all)
+				except (eo.ADRelationNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
+					return False
+			else:
+				return False
+
+	return True
+
+
 # given available frequencies, sum up those that are negative
 def compute_neg_avFreqs(avFreqs):
 	tmp_avFreqs = np.copy(avFreqs)
@@ -168,7 +230,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	linFreqs = None
 	initial_pps_for_all = None
 	if ppm is not None:
-		last = lin_num - 1
+		last = lin_num
 		# get definite parents and available frequencies
 		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
@@ -647,8 +709,7 @@ def upper_bound_number_reconstructions(ppm):
 		raise Exception("Wrong format of possible parent matrix.")
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
-def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False,
-	noise_buffer_file=None, find_best_noise_buffer=False):
+def read_ppm_zmatrix_and_more(ppm_file, z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file):
 
 	# get ppm data
 	ppm = np.loadtxt(ppm_file, delimiter=",")
@@ -676,6 +737,15 @@ def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_fil
 	noise_buffer = 0
 	if noise_buffer_file is not None:
 		noise_buffer = np.loadtxt(noise_buffer_file, delimiter=",", ndmin=2)
+
+	return ppm, z_matrix, converted_matrix, my_lins, seg_num, noise_buffer
+
+def depth_first_search(ppm_file=None, z_matrix_file=None, lin_file=None, cna_file=None, ssm_file=None, output_prefix=None, overwrite=False,
+	noise_buffer_file=None, find_best_noise_buffer=False):
+
+	# get ppm data, Z-matrix, lineages, number of segments, noise buffer
+	ppm, z_matrix, converted_matrix, my_lins, seg_num, noise_buffer = read_ppm_zmatrix_and_more(ppm_file, 
+		z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file)
 
 	# create filenames
 	valid_count_file = "{0}.valid_count.txt".format(output_prefix)
@@ -793,7 +863,7 @@ def compute_number_ambiguous_recs(my_lineages, seg_num, z_matrix, recursive=Fals
 		avFreqs = None
 		linFreqs = None
 		if ppm is not None:
-			last = lin_num - 1
+			last = lin_num
 			# get definite parents and available frequencies
 			linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 			defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)

@@ -14,6 +14,49 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_is_tree_contained_in_partial_clone_tree(self):
+
+		# 1) Z == t
+		z_matrix = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		tree_z = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([2], [0.8], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2]
+		ppm = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
+
+		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+
+		# 2) Z != t
+		tree_z = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+
+		self.assertFalse(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+
+		# 3) Z != t, but t is contained
+		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
+		tree_z = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.4], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2]
+		ppm = [[0, 0, 0], [1, 0, 0], [1, 1, 0]]
+
+		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+
+		# 4) Z != t, update not possible
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		tree_z = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.4], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.3], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2, lin3]
+		ppm = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]])
+
+		self.assertFalse(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+
+
+
 	def construct_some_data(self):
 		# construct the data
 		# Z-matrix
