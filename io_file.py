@@ -1852,6 +1852,23 @@ def read_matrix_from_file(file_name):
 		z_matrix = json.load(f)
 
 	return z_matrix
+
+def get_ID_mapping_from_log_file(file_name):
+	mapping = {}
+
+	with open(file_name, "r") as f:
+		for line in f:
+			if "Subclone index to ID mapping" in line:
+				mapping_parts = line.rstrip().split(": ")[-1].split(", ")
+				for i in mapping_parts:
+					subclone_index, my_id = i.split("->")
+					try:
+						my_id = int(my_id)
+					except ValueError:
+						pass
+					mapping[my_id] = int(subclone_index)
+
+	return mapping
 				
 def print_status_value(status, value):
 	logging.debug("status: {0}".format(status))
@@ -1896,3 +1913,5 @@ def build_current_tree_definite_children(ppm, last, k):
 			parent = possible_parents[0]
 			tree_string.append("{0}->{1}".format(parent, i))
 	return ",".join(tree_string)
+
+

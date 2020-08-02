@@ -14,38 +14,49 @@ import copy
 
 class ModelTest(unittest.TestCase):
 
+	def test_sort_z_matrix_according_ID_mapping(self):
+		sorting_id_mapping = {1: 3, 2: 1, 3: 2}
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		true_new = [[-1, 1, 1, 1], [-1, -1, 0, -1], [-1, -1, -1, -1], [-1, 1, 1, -1]]
+
+		self.assertEqual(submarine.sort_z_matrix_according_ID_mapping(z_matrix, sorting_id_mapping), true_new)
+
 	def test_is_tree_contained_in_partial_clone_tree(self):
 
 		# 1) Z == t
 		z_matrix = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
 		tree_z = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		sorting_id_mapping = {1: 1, 2: 2, 3: 3}
 		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([2], [0.8], [], [], [], [], [], [], [], [])
 		lin2 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
 		my_lins = [lin0, lin1, lin2]
 		ppm = [[0, 0, 0], [1, 0, 0], [0, 1, 0]]
 
-		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping))
 
 		# 2) Z != t
 		tree_z = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
 
-		self.assertFalse(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+		self.assertEqual(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping),
+			(False, "relationship"))
 
 		# 3) Z != t, but t is contained
 		z_matrix = [[-1, 1, 1], [-1, -1, 0], [-1, -1, -1]]
 		tree_z = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		sorting_id_mapping = {1: 1, 2: 2, 3: 3}
 		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
 		lin2 = lineage.Lineage([], [0.4], [], [], [], [], [], [], [], [])
 		my_lins = [lin0, lin1, lin2]
 		ppm = [[0, 0, 0], [1, 0, 0], [1, 1, 0]]
 
-		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping))
 
 		# 4) Z != t, update not possible
 		z_matrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
 		tree_z = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		sorting_id_mapping = {1: 1, 2: 2, 3: 3, 4: 4}
 		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
 		lin1 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
 		lin2 = lineage.Lineage([], [0.4], [], [], [], [], [], [], [], [])
@@ -53,7 +64,35 @@ class ModelTest(unittest.TestCase):
 		my_lins = [lin0, lin1, lin2, lin3]
 		ppm = np.asarray([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [1, 1, 1, 0]])
 
-		self.assertFalse(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z))
+		self.assertEqual(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping), 
+			(False, "relationship"))
+
+		# 5) Z == t, although mapping changes t
+		z_matrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		tree_z = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+		sorting_id_mapping = {1: 1, 2: 3, 3: 2}
+		lin0 = lineage.Lineage([1, 2, 3], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [1.0], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.4], [], [], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2, lin3]
+		ppm = np.asarray(([0, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0 , 0], [0, 1, 0, 0]))
+
+		self.assertTrue(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping))
+
+		# 6) Z != t because of order
+		z_matrix = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		tree_z = [[-1, 1, 1], [-1, -1, 1], [-1, -1, -1]]
+		sorting_id_mapping = {1: 2, 2: 1}
+		lin0 = lineage.Lineage([1, 2], [1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([], [0.5], [], [], [], [], [], [], [], [])
+		lin2 = lineage.Lineage([], [0.6], [], [], [], [], [], [], [], [])
+		my_lins = [lin0, lin1, lin2]
+		ppm = np.asarray([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+
+		self.assertEqual(submarine.is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, sorting_id_mapping), 
+			(False, "order"))
+
 
 
 
@@ -1464,7 +1503,7 @@ class ModelTest(unittest.TestCase):
 		freq_file = "testdata/unittests/frequencies3.csv"
 
 		returned_error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.001)
-		wanted_error_message = "Noise buffer too large.\nAllowed noise buffer of 0.001 is smaller than necessary noise threshold of 0.009999990463256836."
+		wanted_error_message = "Noise buffer too large.\nAllowed noise buffer of 0.001 is smaller than necessary noise threshold of 0.00999999046326."
 		self.assertEqual(returned_error_message, wanted_error_message)
 
 		# allows noise, threshold found in second round (#4)

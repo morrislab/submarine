@@ -19,24 +19,58 @@ import copy
 from itertools import compress
 import json
 
-def from_files_is_tree_contained_in_partial_clone_tree(ppm_file=None, z_matrix_file=None, complete_tree_file=None, lin_file=None, cna_file=None, ssm_file=None, noise_buffer_file=None):
+def from_files_is_tree_contained_in_partial_clone_tree(ppm_file=None, z_matrix_file=None, complete_tree_file=None, lin_file=None,
+	log_file=None, cna_file=None, ssm_file=None, noise_buffer_file=None):
 
 	# get ppm data, Z-matrix, lineages, CNAs, SSMs, number of segments, noise buffer
 	ppm, z_matrix, converted_matrix, my_lins, seg_num, noise_buffer = read_ppm_zmatrix_and_more(ppm_file, 
 		z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file)
+	# get ID mapping from log file
+	sorting_id_mapping = oio.get_ID_mapping_from_log_file(log_file)
 	# get complete tree
 	tree_z = oio.read_matrix_from_file(tree_z_file)
 	if tree_z[0][0] == 0:
 		tree_z = convert_zmatrix_0_m1(tree_z)	
 
 	# check whether tree is contained in Z matrix
-	return is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, seg_num=seg_num, noise_buffer=noise_buffer)
+	return is_tree_contained_in_partial_clone_tree(z_matrix, my_lins, ppm, tree_z, 
+		sorting_id_mapping, seg_num=seg_num, noise_buffer=noise_buffer)
+
+# sorting_id_mapping[ID] = subclonal index
+def sort_z_matrix_according_ID_mapping(z_matrix, sorting_id_mapping):
+	lin_num = len(z_matrix[0])
+
+	# create new Z matrix
+	new_z_matrix = [[-1] * lin_num for x in range(lin_num)]
+
+	# go through old Z matrix
+	for k in range(1, lin_num):
+		new_z_matrix[0][k] = 1
+		for kp in range(1, lin_num):
+			if z_matrix[k][kp] == 1:
+				new_z_matrix[sorting_id_mapping[k]][sorting_id_mapping[kp]] = 1
+			elif z_matrix[k][kp] == 0:
+				new_z_matrix[sorting_id_mapping[k]][sorting_id_mapping[kp]] = 0
+
+	return new_z_matrix
 
 # given a partial clone tree in z_matrix, does it contain the complete tree tree_z?
-def is_tree_contained_in_partial_clone_tree(z_matrix, my_lineages, ppm, tree_z, seg_num=0, noise_buffer=0):
+# sorting_id_mapping[ID] = subclonal index
+def is_tree_contained_in_partial_clone_tree(z_matrix, my_lineages, ppm, tree_z, 
+	sorting_id_mapping, seg_num=0, noise_buffer=0):
+
+	lin_num = len(my_lineages)
+
+	# sort tree_z according to sorting_id_mapping
+	tree_z = sort_z_matrix_according_ID_mapping(tree_z, sorting_id_mapping)
+	# check lower triangle of resorted tree_z to contain "1" values
+	for k in range(lin_num):
+		for kp in range(k):
+			# if "1"s are contained, the complete tree is not contained in the partial clone tree
+			if tree_z[k][kp] == 1:
+				return False, "order"
 
 	# different variables needed for this function
-	lin_num = len(my_lineages)
 	zero_count = lin_num * lin_num
 	zero_count, triplet_xys, triplet_ysx, triplet_xsy = check_and_update_complete_Z_matrix_from_matrix(z_matrix, zero_count, lin_num)
 	matrix_after_first_round = np.copy(z_matrix)
@@ -74,11 +108,11 @@ def is_tree_contained_in_partial_clone_tree(z_matrix, my_lineages, ppm, tree_z, 
 						zero_count=zero_count, gain_num=gain_num, loss_num=loss_num, CNVs=CNVs, present_ssms=present_ssms,
 						noise_buffer=noise_buffer, initial_pps_for_all=initial_pps_for_all)
 				except (eo.ADRelationNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise, eo.ZInconsistenceInfo) as e:
-					return False
+					return False, "relationship"
 			else:
-				return False
+				return False, "relationship"
 
-	return True
+	return True, True
 
 
 # given available frequencies, sum up those that are negative
@@ -156,7 +190,7 @@ def combine_different_submars(submars, coeffs=[], uniform=False, use_ppm=False):
 		uniform = True
 	# compute uniform coefficients
 	if uniform == True:
-		coeffs = [1/submar_num] * submar_num
+		coeffs = [1.0/submar_num] * submar_num
 	# take care that coeffs are scaled
 	else:
 		coeffs_sum = sum(coeffs)

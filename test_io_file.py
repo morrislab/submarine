@@ -13,6 +13,13 @@ import numpy as np
 
 class OnctopusIOTest(unittest.TestCase):
 
+	def test_get_ID_mapping_from_log_file(self):
+		file_name = "testdata/unittests/my_test.log"
+
+		true_mapping = {"germline": 0, 13: 1, 15: 2, 16: 3}
+
+		self.assertEqual(oio.get_ID_mapping_from_log_file(file_name), true_mapping)
+
 	def test_build_current_tree_definite_children(self):
 
 		ppm = np.zeros(25).reshape(5,5)
