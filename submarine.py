@@ -37,6 +37,7 @@ def from_files_is_tree_contained_in_partial_clone_tree(ppm_file=None, z_matrix_f
 		sorting_id_mapping, seg_num=seg_num, noise_buffer=noise_buffer)
 
 # sorting_id_mapping[ID] = subclonal index
+# 	unless a reverse mapping is used
 def sort_z_matrix_according_ID_mapping(z_matrix, sorting_id_mapping):
 	lin_num = len(z_matrix[0])
 
@@ -61,7 +62,8 @@ def is_tree_contained_in_partial_clone_tree(z_matrix, my_lineages, ppm, tree_z,
 
 	lin_num = len(my_lineages)
 
-	# sort tree_z according to sorting_id_mapping
+	# sort tree_z according to sorting_id_mapping, meaning that the true tree is sorted
+	#	according to the used subclonal indices of the inferred partial clone tree
 	tree_z = sort_z_matrix_according_ID_mapping(tree_z, sorting_id_mapping)
 	# check lower triangle of resorted tree_z to contain "1" values
 	for k in range(lin_num):
