@@ -1450,7 +1450,7 @@ class ModelTest(unittest.TestCase):
 		supposed_message = "Partial tree rule conflict.\nThe following three relationships are not allowed together: Z(2, 5) = 1, Z(2, 6) = 0, Z(5, 6) = 1."
 
 		# no user constraints, doesn't work
-		freq_file = "testdata/unittests/frequencies3.csv"
+		freq_file = "testdata/unittests/frequencies11.csv"
 
 		error_message = submarine.go_basic_version(freq_file=freq_file)
 		message = "There are no possible parents for subclone 4 with frequencies of 0.400,0.310, because subclone 0 has only available frequencies of 0.200,0.200, subclone 1 has only available frequencies of 0.000,0.000.\nCurrent tree with definite children: 0->1,1->2,1->3."
@@ -1487,7 +1487,7 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(avFreqs, real_avFreqs).all())
 
 		# allows noise, given theshold is large enough (#2)
-		freq_file = "testdata/unittests/frequencies3.csv"
+		freq_file = "testdata/unittests/frequencies11.csv"
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, 
 			noise_buffer=np.asarray([0.3]*5*2).reshape(5,2))
 
@@ -1500,14 +1500,14 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(z_matrix_for_output, real_z_matrix_for_output)
 
 		# maximal noise threshold too small (#3)
-		freq_file = "testdata/unittests/frequencies3.csv"
+		freq_file = "testdata/unittests/frequencies11.csv"
 
 		returned_error_message = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, maximal_noise=0.001)
-		wanted_error_message = "Noise buffer too large.\nAllowed noise buffer of 0.001 is smaller than necessary noise threshold of 0.00999999046326."
+		wanted_error_message = "Noise buffer too large.\nAllowed noise buffer of 0.001 is smaller than necessary noise threshold of 0.009999990463256836."
 		self.assertEqual(returned_error_message, wanted_error_message)
 
 		# allows noise, threshold found in second round (#4)
-		freq_file = "testdata/unittests/frequencies4.csv"
+		freq_file = "testdata/unittests/frequencies12.csv"
 		userZ_file = "testdata/unittests/userZ_3.csv"
 
 		my_lins, z_matrix_for_output, avFreqs, ppm, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_basic_version(freq_file=freq_file, allow_noise=True, userZ_file=userZ_file)
@@ -1604,7 +1604,6 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(lins[3].freq, [0.9, 0.1])
 		self.assertEqual(lins[4].freq, [0.8, 0.1])
 
-
 		# same average freqs but other individual frequencies
 		freqs = [[0.8, 0.2, 1.0], [0.1, 0.2, 0.3], [0.5, 0.5, 1.0], [0.9, 0.8, 0.9],
 			[1.0, 0.3, 0.7], [0.4, 0.2, 0.2]]
@@ -1615,23 +1614,55 @@ class ModelTest(unittest.TestCase):
 			lin_num=lin_num, lin_ids=lin_ids)
 
 		self.assertEqual(lins[1].freq, [0.9, 0.8, 0.9])
+		self.assertEqual(lins[6].freq, [0.1, 0.2, 0.3])
+		self.assertEqual(lins[5].freq, [0.4, 0.2, 0.2])
+		self.assertEqual(lins[2].freq, [0.8, 0.2, 1.0])
+		self.assertEqual(lins[3].freq, [0.5, 0.5, 1.0])
+		self.assertEqual(lins[4].freq, [1.0, 0.3, 0.7])
+
+		# same average freqs but other individual frequencies, other lineage IDs
+		freqs = [[0.8, 0.2, 1.0], [0.1, 0.2, 0.3], [0.5, 0.5, 1.0], [0.9, 0.8, 0.9],
+			[1.0, 0.3, 0.7], [0.4, 0.2, 0.2]]
+		freq_num = 3
+		lin_num = 7
+		lin_ids = [5, 2, 3, 4, 1, 6]
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, freq_num=freq_num, 
+			lin_num=lin_num, lin_ids=lin_ids)
+
+		self.assertEqual(lins[1].freq, [0.9, 0.8, 0.9])
+		self.assertEqual(lins[6].freq, [0.1, 0.2, 0.3])
+		self.assertEqual(lins[5].freq, [0.4, 0.2, 0.2])
 		self.assertEqual(lins[4].freq, [0.8, 0.2, 1.0])
 		self.assertEqual(lins[3].freq, [0.5, 0.5, 1.0])
 		self.assertEqual(lins[2].freq, [1.0, 0.3, 0.7])
+
+		# same average freqs but other individual frequencies, other lineage IDs again
+		freqs = [[0.8, 0.2, 1.0], [0.1, 0.2, 0.3], [0.5, 0.5, 1.0], [0.9, 0.8, 0.9],
+			[1.0, 0.3, 0.7], [0.4, 0.2, 0.2]]
+		freq_num = 3
+		lin_num = 7
+		lin_ids = [3, 2, 5, 4, 1, 6]
+		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, freq_num=freq_num, 
+			lin_num=lin_num, lin_ids=lin_ids)
+
+		self.assertEqual(lins[1].freq, [0.9, 0.8, 0.9])
 		self.assertEqual(lins[6].freq, [0.1, 0.2, 0.3])
 		self.assertEqual(lins[5].freq, [0.4, 0.2, 0.2])
-
+		self.assertEqual(lins[3].freq, [0.8, 0.2, 1.0])
+		self.assertEqual(lins[4].freq, [0.5, 0.5, 1.0])
+		self.assertEqual(lins[2].freq, [1.0, 0.3, 0.7])
 
 		# same frequencies
 		freqs = [[1.0, 0.1], [0.8, 0.7], [1.0, 0.1]]
 		freq_num = 2
-		lin_num = 3
+		lin_num = 4
 		lin_ids = [1, 2, 3]
 
 		lins, mapping = submarine.get_lineages_from_freqs(freqs=freqs, 
-			freq_num=freq_num, lin_num=lin_num, lin_ids=lin_ids)
+			freq_num=freq_num, lin_num=lin_num, lin_ids=lin_ids, normal_freq_present=False)
 
-		self.assertEqual(3, len(lins))
+		self.assertEqual(4, len(lins))
+		self.assertEqual(mapping, {1: 2, 2: 1, 3:3})
 
 		# sorting needed, only freqs given, normal one not present
 		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1]]
@@ -1657,8 +1688,8 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(mapping[0], 2)
 		self.assertEqual(mapping[1], 4)
 		self.assertEqual(mapping[2], 3)
-		self.assertEqual(mapping[3], 1)
-		self.assertEqual(mapping[4], 0)
+		self.assertEqual(mapping[3], 0)
+		self.assertEqual(mapping[4], 1)
 
 
 	def test_convert_zmatrix_for_internal_use(self):
