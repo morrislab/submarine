@@ -1931,7 +1931,7 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 				sorted_indices[i+j] = same_freq[lin_ids_subset_sorted_arg[j]]
 
 			# inform user about this
-			logging.info("Attention: Subclones with IDs {0} have the same average subclonal frequencies. SubMARine uses the numerical order of the IDs but other orders might be possible as well.".format(",".join(map(str, np.sort(map(int, lin_ids_subset))))))
+			logging.info("Attention: Subclones with IDs {0} have the same average subclonal frequencies. SubMARine uses the numerical order of the IDs but other orders might be possible as well.".format(",".join(map(str, np.sort([*map(int, lin_ids_subset)])))))
 
 		# update i
 		i = next_lin
