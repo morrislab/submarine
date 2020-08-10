@@ -271,6 +271,12 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
 		initial_pps_for_all = build_initial_pps_for_all(ppm)
+
+	# take care that noise buffer has correct format
+	freq_num = len(linFreqs[0])
+	if isinstance(noise_buffer, int) or isinstance(noise_buffer, float):
+		noise_buffer = np.zeros(lin_num*freq_num).reshape(lin_num,freq_num)
+
 	sbclr_0 = Subclonal_Reconstruction_for_DFS(zmco, present_ssms, ppm, defparent, avFreqs, initial_pps_for_all)
 
 	# checks whether given partial subclonal reconstruction is valid
