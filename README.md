@@ -23,7 +23,8 @@ This file gives the parent of each cancerous lineage.
 
 `freq_file`:
 This file gives the subclonal frequencies across `N` tumor samples of the same patient.
-* `subclone_ID`: ID of subclone
+* `subclone_ID`: ID of subclone, has to be a number<br>
+If two subclones have the same average subclonal frequencies across all samples, they are sorted according to their IDs.
 * `frequencies`: tab-delimited frequencies across `N` tumor samples
 
 Note that the germline is not part of this frequency file.
