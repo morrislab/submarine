@@ -148,7 +148,7 @@ def compute_MAR_noise_buffer(number_undef_rels, undef_rels, USED_P1, USED_M1, K,
 	
 	# get noise buffer set
 	subsam_specific_noise_buffers = get_subclone_specific_noise_buffer(noise_buffer, sbclr.ppm, sbclr.avFreqs, linFreqs)
-	largest_necessary_buffer = get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers)
+	largest_necessary_buffer = get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers, sbclr.zmco.z_matrix, linFreqs)
 
 	return sbclr.zmco.z_matrix, largest_necessary_buffer, sbclr.ppm
 
@@ -263,12 +263,11 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 	last = None
 	defparent = None
 	avFreqs = None
-	linFreqs = None
+	linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 	initial_pps_for_all = None
 	if ppm is not None:
 		last = lin_num
 		# get definite parents and available frequencies
-		linFreqs = np.asarray([my_lineages[i].freq for i in range(len(my_lineages))])
 		defparent, avFreqs = get_definite_parents_available_frequencies(linFreqs, ppm)
 		initial_pps_for_all = build_initial_pps_for_all(ppm)
 
@@ -1748,8 +1747,19 @@ def get_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffer
 	my_set = [subsam_specific_noise_buffers[k][0].tolist() for k in range(len(subsam_specific_noise_buffers))]
 	return np.asarray(my_set)
 
-def get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):
+def get_largest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers, zmatrix, linfreqs):
 	my_set = [subsam_specific_noise_buffers[k][-1].tolist() for k in range(len(subsam_specific_noise_buffers))]
+	# check all ancestors for each subclone, check whether higher buffer is needed because of sum rule
+	for k in range(len(subsam_specific_noise_buffers)):
+		for kstar in range(k):
+			if zmatrix[kstar][k] == 1:
+				freq_diff_0 = linfreqs[kstar] - linfreqs[k]
+				freq_diff_0[freq_diff_0 > 0] = 0
+				abs_freq_diff_0 = abs(freq_diff_0)
+				# sum rule needs some larger value somewhere
+				if (freq_diff_0 < 0).any() and (abs_freq_diff_0 > my_set[k]).any():
+					# check that largest value is used for each sample
+					my_set[k] = [my_set[k][n] if my_set[k][n] > abs_freq_diff_0[n] else abs_freq_diff_0[n] for n in range(len(freq_diff_0))]
 	return np.asarray(my_set)
 
 def get_second_smallest_subclone_specific_noise_buffer_set(subsam_specific_noise_buffers):

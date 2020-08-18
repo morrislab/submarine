@@ -241,10 +241,23 @@ class ModelTest(unittest.TestCase):
 		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0, 0]), np.asarray([0.2, 0.2])], [np.asarray([0.2, 0.2])], 
 			[np.asarray([0, 0]), np.asarray([0, 0.1]), np.asarray([0.1, 0.2])]]
 		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0.2, 0.2], [0.2, 0.2], [0.1, 0.2]])
+		# other values make no sense here
+		zmatrix = [[-1, 1, 1, 1], [-1, -1, 0, 0], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		linfreqs = np.asarray([[1, 1], [0.8, 0.8], [0.6, 0.6], [0.1, 0.1]])
 
-		my_set = submarine.get_largest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer)
+		my_set = submarine.get_largest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer, zmatrix, linfreqs)
 
 		self.assertTrue((true_subclone_specific_noise_buffer_set == my_set).all())
+
+		# second example
+		subclone_specific_noise_buffer = [[np.asarray([0, 0])], [np.asarray([0, 0])], [np.asarray([0, 0])], [np.asarray([0, 0]), np.asarray([0.01, 0])]]
+		zmatrix = [[-1, 1, 1, 1], [-1, -1, 1, 1], [-1, -1, -1, 0], [-1, -1, -1, -1]]
+		linfreqs = np.asarray([[1, 1], [0.8, 0.6], [0.39, 0], [0.4, 0.7]])
+		true_subclone_specific_noise_buffer_set = np.asarray([[0, 0], [0, 0], [0, 0], [0.01, 0.1]])
+		
+		my_set = submarine.get_largest_subclone_specific_noise_buffer_set(subclone_specific_noise_buffer, zmatrix, linfreqs)
+
+		self.assertTrue(np.allclose(true_subclone_specific_noise_buffer_set, my_set))
 
 	def test_get_second_smallest_subclone_specific_noise_buffer_set(self):
 

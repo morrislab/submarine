@@ -1,6 +1,6 @@
 INFO:root:Parsing input information.
 INFO:root:Sorting subclones according to average frequencies.
-INFO:root:...
+INFO:root:Attention: Subclones with IDs 1,3 have the same average subclonal frequencies. SubMARine uses the numerical order of the IDs but other orders might be possible as well.
 INFO:root:Subclone index to ID mapping: 0->germline, 1->2, 2->1, 3->3, 4->4
 INFO:root:Starting SubMARine.
 INFO:root:crossing rule
