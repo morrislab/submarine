@@ -194,12 +194,14 @@ def create_impact_matrix(impact_file=None, cna_num=-1, ssm_num=-1):
 			if first_line:
 				first_line = False
 				continue
-			ssm_index, cna_index = map(int, line.rstrip().split("\t"))
-			if cna_index >= cna_num:
-				raise eo.MyException("CNA index {0} is too high.".format(cna_index))
-			if ssm_index >= ssm_num:
-				raise eo.MyException("SSM index {0} is too high.".format(ssm_index))
-			impact_matrix[ssm_index][cna_index] = 1
+			entries = line.rstrip().split("\t")
+			if entries != [] and entries != [""]:
+				ssm_index, cna_index = map(int, entries)
+				if cna_index >= cna_num:
+					raise eo.MyException("CNA index {0} is too high.".format(cna_index))
+				if ssm_index >= ssm_num:
+					raise eo.MyException("SSM index {0} is too high.".format(ssm_index))
+				impact_matrix[ssm_index][cna_index] = 1
 
 	return impact_matrix
 
