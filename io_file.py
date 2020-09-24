@@ -1907,6 +1907,9 @@ def possible_parents_to_string(ppm, output_file, test=False):
 # show the current tree, which children are definite up until last, excluding k
 def build_current_tree_definite_children(ppm, last, k):
 	tree_string = []
+	# if last is last subclone, take care that index doesn't get too high
+	if last == len(ppm):
+		last -= 1
 	for i in range(1,last+1):
 		if i == k:
 			continue
