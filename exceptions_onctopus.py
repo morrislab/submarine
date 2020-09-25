@@ -113,3 +113,5 @@ class ReconstructionInvalid(MyException):
 	pass
 class SmallerNegAvFreq(MyException):
 	pass
+class PhasingForbidsRelation(MyException):
+	pass

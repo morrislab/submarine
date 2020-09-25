@@ -321,7 +321,7 @@ def new_dfs(z_matrix, my_lineages, seg_num=None, filename=None, count_threshold=
 						raise eo.SmallerNegAvFreq("Better negative frequencies found")
 				undef_rels[i][SBCLR] = sbclr
 			except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
-				eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
+				eo.RelationshipAlreadySet, eo.SmallerNegAvFreq, eo.PhasingForbidsRelation) as e:
 				# update not possible or noise buffer was worse
 				# thus, count one tree that was enumerated
 				total_count += 1
@@ -504,7 +504,7 @@ def update_sbclr_dfs(value, k, kp, last, sbclr, seg_num, zero_count, gain_num, l
 				raise eo.SmallerNegAvFreq("Better negative frequencies found")
 		undef_rels[i][SBCLR] = sbclr
 	except (eo.ZInconsistenceInfo, eo.ADRelationNotPossible, eo.ZUpdateNotPossible, eo.NoParentsLeft, eo.NoParentsLeftNoise,
-		eo.RelationshipAlreadySet, eo.SmallerNegAvFreq) as e:
+		eo.RelationshipAlreadySet, eo.SmallerNegAvFreq, eo.PhasingForbidsRelation) as e:
 		# update not possible
 		# thus, count one tree that was enumerated
 		total_count += 1
@@ -1369,6 +1369,7 @@ def go_extended_version(freq_file=None, cna_file=None, ssm_file=None, impact_fil
 	# iterate through all segments once to get all CN changes and SSMs appearances
 	get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lin_num, my_lins,
 		ssm_infl_cnv_same_lineage)
+
 	# copy present_ssm list for later
 	origin_present_ssms = copy.deepcopy(present_ssms)
 	# check for pairwise and easy triplet-wise constraints that lead to absent relationships
@@ -4265,7 +4266,7 @@ def check_1c_CN_loss_phase(current_loss_num, current_CNVs, z_matrix, zero_count,
 					noise_buffer=noise_buffer)
 				# check for errors in results
 				if old_z_status == cons.Z_ONE:
-					raise eo.MyException("This shouldn't happen, deleted allele can't "
+					raise eo.PhasingForbidsRelation("This shouldn't happen, deleted allele can't "
 						"have SSMs.")
 				# all 0 entries in the Z matrix were checked and changed
 				if zero_count == 0:
@@ -4321,7 +4322,7 @@ def check_1a_CN_LOSS_phase(phase, currentCNVs, z_matrix, zero_count, triplet_xys
 				initial_pps_for_all=initial_pps_for_all, noise_buffer=noise_buffer)
 			# check for errors in results
 			if old_z_status == cons.Z_ONE:
-				raise eo.MyException("This shouldn't happen, deleted allele can't be"
+				raise eo.PhasingForbidsRelation("This shouldn't happen, deleted allele can't be"
 					" deleted twice.")
 			# all 0 entries in the Z matrix were checked and changed
 			if zero_count == 0:
