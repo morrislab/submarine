@@ -2054,6 +2054,7 @@ def add_SSMs(ssm_file=None, my_lins=None, lin_num=None, phasing=None, sorting_id
 		for k in range(1, lin_num):
 			my_lins[k].ssms_a = sorted(my_lins[k].ssms_a, key = lambda x: x.seg_index)
 			my_lins[k].ssms_b = sorted(my_lins[k].ssms_b, key = lambda x: x.seg_index)
+			my_lins[k].ssms = sorted(my_lins[k].ssms, key = lambda x: x.seg_index)
 
 	return ssm_num
 
@@ -3612,6 +3613,21 @@ def get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms
 	ssms_a_index = [0] * lineage_num
 	ssms_b_index = [0] * lineage_num
 	ssms_index = [0] * lineage_num
+
+	# check that SSMs and CNAs in lineages are sorted according to segment index
+	for lin_index in range(1, len(my_lineages)):
+		# check SSMs
+		sorted_SSMs_unphased = sorted(my_lineages[lin_index].ssms, key = lambda x: x.seg_index)
+		assert sorted_SSMs_unphased == my_lineages[lin_index].ssms
+		sorted_SSMs_A = sorted(my_lineages[lin_index].ssms_a, key = lambda x: x.seg_index)
+		assert sorted_SSMs_A == my_lineages[lin_index].ssms_a
+		sorted_SSMs_B = sorted(my_lineages[lin_index].ssms_b, key = lambda x: x.seg_index)
+		assert sorted_SSMs_B == my_lineages[lin_index].ssms_b
+		# check CNAs
+		sorted_CNAs_A = sorted(my_lineages[lin_index].cnvs_a, key = lambda x: x.seg_index)
+		assert sorted_CNAs_A == my_lineages[lin_index].cnvs_a
+		sorted_CNAs_B = sorted(my_lineages[lin_index].cnvs_b, key = lambda x: x.seg_index)
+		assert sorted_CNAs_B == my_lineages[lin_index].cnvs_b
 
 	for seg_index in range(seg_num):
 

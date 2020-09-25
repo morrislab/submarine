@@ -4430,17 +4430,17 @@ class ModelTest(unittest.TestCase):
 			ssm11.infl_cnv_same_lin = True
 			cnv12 = cnv.CNV(1, 2, 1, 21, 30)
 			cnv122 = cnv.CNV(1, 2, 1, 21, 30)
-			lin1 = lineage.Lineage([2, 3], 1.0, [cnv12], [cnv122], None, None, None, [ssm1], [ssm11], None)
+			lin1 = lineage.Lineage([2, 3], 1.0, [cnv12], [cnv122], None, None, None, [ssm1], [ssm11], [])
 			cnv2 = cnv.CNV(-1, 1, 1, 11, 20)
 			ssm21 = snp_ssm.SNP_SSM()
 			ssm21.pos = 12
 			ssm21.seg_index = 1
 			cnv22 = cnv.CNV(1, 2, 1, 21, 30)
-			lin2 = lineage.Lineage([3], 1.0, None, [cnv2, cnv22], None, None, None, None, None, [ssm21])
+			lin2 = lineage.Lineage([3], 1.0, [], [cnv2, cnv22], None, None, None, [], [], [ssm21])
 			cnv3 = cnv.CNV(-1, 1, 1, 11, 20)
 			cnv32 = cnv.CNV(1, 2, 1, 21, 30)
 			cnv322 = cnv.CNV(1, 2, 1, 21, 30)
-			lin3 = lineage.Lineage([], 1.0, [cnv3, cnv32], [cnv322], None, None, None, None, None, None)
+			lin3 = lineage.Lineage([], 1.0, [cnv3, cnv32], [cnv322], None, None, None, [], [], [])
 
 			seg_num = 3
 			gain_num = []
@@ -4470,6 +4470,20 @@ class ModelTest(unittest.TestCase):
 			self.assertEqual(len(CNVs[2][cons.GAIN].keys()), 2)
 			self.assertEqual(sorted(CNVs[2][cons.GAIN][cons.A].keys()), [1, 3])
 
+			# unordered CNAs
+			lin2u = lineage.Lineage([3], 1.0, [], [cnv22, cnv2], None, None, None, [], [], [ssm21])
+			my_lineages = [lin0, lin1, lin2u, lin3]
+			with self.assertRaises(AssertionError):
+				submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+					ssm_infl_cnv_same_lineage)
+
+			# unordered SSMs
+			lin2uu = lineage.Lineage([3], 1.0, [], [],  None, None, None, [], [], [ssm11, ssm1])
+			my_lineages = [lin0, lin1, lin2uu, lin3]
+			my_lineages = [lin0, lin1, lin2u, lin3]
+			with self.assertRaises(AssertionError):
+				submarine.get_CN_changes_SSM_apperance(seg_num, gain_num, loss_num, CNVs, present_ssms, lineage_num, my_lineages,
+					ssm_infl_cnv_same_lineage)
 
 	def test_check_crossing_rule_function(self):
 			# crossing rule satisfied
@@ -6237,6 +6251,22 @@ class ModelTest(unittest.TestCase):
 			my_present_ssms[cons.B][0] = True
 			self.assertEqual(onctos_present_ssms, my_present_ssms)
 			self.assertEqual(ssms_index_list, [2, 0])
+
+			# SSMs are not ordered anymore
+			lin3 = lineage.Lineage([], 0, None, None, None, None, None, None, None, [ssm_b_2, ssm_b_1])
+			lins = [lin3]
+
+			onctos_present_ssms = [[False] * 2 for _ in range(3)]
+			lin_index = 0
+			seg_index = 3
+			phase = cons.B
+			ssms_index_list = [0, 0]
+			submarine.get_present_ssms(onctos_present_ssms, lin_index, lins, seg_index, phase, 
+				ssms_index_list)
+			my_present_ssms = [[False] * 2 for _ in range(3)]
+			my_present_ssms[cons.B][0] = True
+			self.assertNotEqual(onctos_present_ssms, my_present_ssms)
+			self.assertNotEqual(ssms_index_list, [2, 0])
 
 
 	def test_is_it_LOH(self):
