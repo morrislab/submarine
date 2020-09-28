@@ -1048,7 +1048,7 @@ class ModelTest(unittest.TestCase):
 
 	def test_propagate_negative_SSM_phasing_according_to_impact_matrix(self):
 
-		# error: eq. 14: different phase of SSM
+		# error: eq. 15: different phase of SSM
 		ssm1 = snp_ssm.SSM()
 		ssm1.index = 0
 		ssm1.lineage = 1
@@ -1081,7 +1081,7 @@ class ModelTest(unittest.TestCase):
 			submarine.propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, z_matrix, impact_matrix, 
 				my_lins)
 
-		# error: eq. 7: deletion in ancestor, wrong phase
+		# error: eq. 8: deletion in ancestor, wrong phase
 		ssm1 = snp_ssm.SSM()
 		ssm1.index = 0
 		ssm1.lineage = 2
@@ -1106,7 +1106,7 @@ class ModelTest(unittest.TestCase):
 			submarine.propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, z_matrix, impact_matrix, 
 				my_lins)
 
-		# error: eq. 7: deletion in current lineage, wrong phase
+		# error: eq. 8: deletion in current lineage, wrong phase
 		ssm1 = snp_ssm.SSM()
 		ssm1.index = 0
 		ssm1.lineage = 2
@@ -1115,7 +1115,7 @@ class ModelTest(unittest.TestCase):
 		my_ssms = [ssm1]
 		cna1 = cnv.CNV(-1, 0, 0, 1, 10)
 		cna1.index = 0
-		cna1.lineage = 1
+		cna1.lineage = 2
 		cna1.seg_index = 0
 		cna1.phase = cons.B
 		my_cnas = [cna1]

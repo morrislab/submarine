@@ -1455,6 +1455,8 @@ def get_deleted_segments(my_cnas):
 def check_lost_alleles_for_basic(del_segments, my_ssms):
 
 	sorted_ssms = sorted(my_ssms, key = lambda x: x.seg_index)
+	del_segments_check = sorted(del_segments)
+	assert del_segments_check == del_segments
 
 	del_seg_index = 0
 	for i in range(len(sorted_ssms)):
