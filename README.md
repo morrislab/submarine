@@ -85,7 +85,7 @@ For each present CNA, the following information is given: the subclone it is ass
 
 If SubMARine is applied in extended mode, it also produces the following output file.
 
-`<my_file_name>.ssm_phasing.csv`:
+`<my_file_name>.ssm_phasing`:
 This file contains the phasing information for each SSM. The first column gives the SSM index and the second the phase. Note that `0` means unphased. 
 
 If SubMARine is applied and instructed to account for noise in the subclonal frequencies, it also produces the following output file.

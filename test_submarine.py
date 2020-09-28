@@ -11,6 +11,7 @@ import constants as cons
 import numpy as np
 import lineage
 import copy
+import json
 
 class ModelTest(unittest.TestCase):
 
@@ -619,6 +620,41 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(returned_noise_buffer, np.asarray([[0, 0], [0.1, 0.1], [0.1, 0.1], [0.1, 0.1]])).all())
 		self.assertTrue((ppm == ppm_true).all())
 		self.assertEqual(ssm_phasing[0], [0, cons.B])
+
+		# another example, no noise, test whether all mutations get phased exactly and all relationships are inferred correctly
+		freq_file = "testdata/unittests/frequencies13.csv"
+		cna_file = "testdata/unittests/cnas7.csv"
+		ssm_file = "testdata/unittests/ssms6.csv"
+		impact_file = "testdata/unittests/impact3.csv"
+		output_prefix = "testdata/unittests/out_result5"
+		overwrite = True
+		
+		submarine.go_extended_version(freq_file=freq_file, cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file,
+			output_prefix=output_prefix, overwrite=overwrite)
+
+		true_zmatrix = [
+			[0, 1, 1, 1, 1],
+			[0, 0, 1, 1, 1],
+			[0, 0, 0, 0, 1],
+			[0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0],
+			]
+		with open("testdata/unittests/out_result5.zmatrix") as f:
+			inferred_matrix = json.load(f)
+		self.assertEqual(true_zmatrix, inferred_matrix)
+
+		true_phasing = ["A", "0", "A"]
+		inferred_phasing = []
+		first_line = True
+		with open("testdata/unittests/out_result5.ssm_phasing") as f:
+			for line in f:
+				if first_line:
+					first_line = False
+					continue
+				inferred_phasing.append(line.rstrip().split("\t")[1])
+		self.assertEqual(true_phasing, inferred_phasing)
+				
+		
 
 	def test_check_lost_alleles_for_basic(self):
 		# works

@@ -1243,7 +1243,7 @@ def propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, 
 	if impact_matrix is None:
 		return True
 
-	# propagate SSM phasing with Equation 14 (different phase because of impact matrix)
+	# propagate SSM phasing with Equation 15 (different phase because of impact matrix)
 	for current_ssm in my_ssms:
 		for current_cna in my_cnas:
 			ssm_index = current_ssm.index
@@ -1256,12 +1256,12 @@ def propagate_negative_SSM_phasing_according_to_impact_matrix(my_ssms, my_cnas, 
 					raise eo.MyException("SSM phases cannot be propagated. SSM {0} needs to have both "
 						"phases at the same time.".format(ssm_index))
 
-	# propagate SSM phasing with Equation 7 (lost allele)
+	# propagate SSM phasing with Equation 8 (lost allele)
 	for current_ssm in my_ssms:
 		k = current_ssm.lineage
 		ancestors = [k_star for k_star in range(1, k) if z_matrix[k_star][k] == 1]
 		for phase in [cons.A, cons.B]:
-			# get change of ancestors  of phase of segment where SSM lies on
+			# get change of ancestors of phase of segment where SSM lies on
 			change = 0
 			for k_star in ancestors:
 				if phase == cons.A:
