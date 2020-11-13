@@ -750,6 +750,30 @@ def upper_bound_number_reconstructions(ppm):
 		raise Exception("Wrong format of possible parent matrix.")
 	return np.sum([np.log(np.count_nonzero(ppm[k])) for k in range(1, len(ppm))])
 
+# computes the upper bound on set of (sub)MAR-completing clone trees
+def compute_upper_bound(ppm_file=None, z_matrix_file=None):
+	# check if ppm file is there
+	if ppm_file is None:
+		# read z_matrix_file
+		if z_matrix_file is None:
+			raise Exception("Possible parent file or ancestry matrix Z need to be given.")
+		z_matrix = oio.read_matrix_from_file(z_matrix_file)
+		if z_matrix[0][0] == 0:
+			z_matrix = convert_zmatrix_0_m1(z_matrix)	
+		# compute ppm from zmatrix
+		ppm = get_possible_parents(z_matrix)
+	else:
+		# read ppm file
+		ppm = np.loadtxt(ppm_file, delimiter=",")
+
+	# compute upper bound
+	log_bound = upper_bound_number_reconstructions(ppm)
+	if log_bound > np.log(sys.maxsize):
+		print("Upper bound on set of (sub)MAR-completing clone trees: e^{0}".format(log_bound))
+	else:
+		bound = round(np.exp(log_bound))
+		print("Upper bound on set of (sub)MAR-completing clone trees: {0}".format(bound))
+
 def read_ppm_zmatrix_and_more(ppm_file, z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file):
 
 	# get ppm data
@@ -4560,6 +4584,7 @@ if __name__ == '__main__':
     parser.add_argument("--dfs", action='store_true', help="performs depth-first search")
     parser.add_argument("--basic_version", action='store_true', help="starts basic version")
     parser.add_argument("--extended_version", action='store_true', help="starts extended version")
+    parser.add_argument("--upper_bound", action='store_true', help="computes upper bound on set of (sub)MAR-completing clone trees")
     parser.add_argument("--allow_noise", action='store_true', help="allows noise in Subpoplar algorithm")
     parser.add_argument("--maximal_noise", default=-1, type=float, help ="maximal noise buffer to which Subpoplar can be extended")
     parser.add_argument("--noise_buffer", default=0, type=float, help ="noise buffer with which Subpoplar starts")
@@ -4582,6 +4607,8 @@ if __name__ == '__main__':
         go_extended_version(freq_file=args.freq_file, cna_file=args.cna_file, ssm_file=args.ssm_file, impact_file=args.impact_file, 
 		userZ_file=args.userZ_file, userSSM_file=args.userSSM_file,
 		output_prefix=args.output_prefix, overwrite=args.overwrite, allow_noise=allow_noise, noise_buffer=args.noise_buffer, maximal_noise=args.maximal_noise)
+    elif args.upper_bound:
+        compute_upper_bound(ppm_file=args.possible_parent_file, z_matrix_file=args.z_matrix_file)
     else:
         go_submarine(args.parents_file, args.freq_file, args.cna_file, args.ssm_file, args.seg_file, args.userZ_file, args.userSSM_file, args.output_prefix, args.overwrite)
 
