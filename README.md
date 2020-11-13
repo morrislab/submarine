@@ -172,3 +172,12 @@ python3 submarine.py --dfs --possible_parent_file submarine_example/my_test_exte
   --output_prefix submarine_example/my_test_extended 
 ```
 When no CNAs and SSMs are given, simply do not use the `--cna_file` and the `--ssm_file` options.
+
+In order to compute the upper bound on the number of valid (sub)MAR-completing clone trees type:
+```
+python3 submarine.py --upper_bound --possible_parent_file submarine_example/my_test_noise_2.pospars
+```
+If no possible parent file should be present for a dataset, the ancestry matrix `Z` can also be used:
+```
+python3 submarine.py --upper_bound --z_matrix_file submarine_example/my_test_noise_2.zmatrix
+```
