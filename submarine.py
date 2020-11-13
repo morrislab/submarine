@@ -769,10 +769,10 @@ def compute_upper_bound(ppm_file=None, z_matrix_file=None):
 	# compute upper bound
 	log_bound = upper_bound_number_reconstructions(ppm)
 	if log_bound > np.log(sys.maxsize):
-		print("Upper bound on set of (sub)MAR-completing clone trees: e^{0}".format(log_bound))
+		print("Upper bound on set of valid (sub)MAR-completing clone trees: e^{0}".format(log_bound))
 	else:
 		bound = round(np.exp(log_bound))
-		print("Upper bound on set of (sub)MAR-completing clone trees: {0}".format(bound))
+		print("Upper bound on set of valid (sub)MAR-completing clone trees: {0}".format(bound))
 
 def read_ppm_zmatrix_and_more(ppm_file, z_matrix_file, lin_file, cna_file, ssm_file, noise_buffer_file):
 
