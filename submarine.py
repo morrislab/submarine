@@ -1933,7 +1933,10 @@ def get_lineages_from_freqs(freq_file=None, freqs=None, freq_num=None, lin_num=N
 			else:
 				lin_num = len(freqs) + 1
 		if lin_ids is None:
-			lin_ids = [x for x in range(lin_num)]
+			if normal_freq_present == True:
+				lin_ids = [str(x) for x in range(lin_num)]
+			else:
+				lin_ids = [str(x) for x in range(1, lin_num)]
 	
 	# sort frequencies according to average frequency
 	# get average of list

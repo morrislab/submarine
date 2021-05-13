@@ -604,6 +604,24 @@ class ModelTest(unittest.TestCase):
 		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
 		self.assertEqual(true_my_lins, my_lins)
 
+		# same example as above but this time frequencies are given directly as parameter
+		freqs = [[0.5, 0.5], [0.49, 0.49], [0.48, 0.48], [0.4, 0.47], [0.47, 0.46]]
+		cna_file = "submarine_example/cnas3.csv"
+		ssm_file = "submarine_example/ssms3.csv"
+		impact_file = "submarine_example/impact3.csv"
+		userZ_file = "submarine_example/userZ_3.csv"
+		userSSM_file = "submarine_example/userSSM3.csv"
+		output_prefix = "submarine_example/test_extended_version"
+		overwrite = True
+		use_logging = True
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(direct_freqs=freqs, 
+			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, 
+			userZ_file=userZ_file, userSSM_file=userSSM_file, 
+			output_prefix=output_prefix, overwrite=overwrite, use_logging=use_logging)
+
+		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
+
 		# example #6) that tests working with noise, using binary search
 		freq_file = "testdata/unittests/frequencies5.csv"
 		cna_file = "testdata/unittests/cnas6.csv"
@@ -1639,7 +1657,6 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(lins[2].sublins, [])
 		self.assertEqual(lins[3].sublins, [])
 
-
 		# sorting needed
 		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1]]
 		freq_num = 2
@@ -1721,9 +1738,10 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(lins[2].freq, [1.0, 0.8])
 		self.assertEqual(lins[3].freq, [0.9, 0.1])
 		self.assertEqual(lins[4].freq, [0.8, 0.1])
-		self.assertEqual(mapping[0], 2)
-		self.assertEqual(mapping[1], 4)
-		self.assertEqual(mapping[2], 3)
+		self.assertEqual(mapping['4'], 1)
+		self.assertEqual(mapping['1'], 2)
+		self.assertEqual(mapping['3'], 3)
+		self.assertEqual(mapping['2'], 4)
 
 		# sorting needed, only freqs given, normal one present
 		freqs = [[1, 0.8], [0.8, 0.1], [0.9, 0.1], [1, 1], [1, 1]]
@@ -1734,11 +1752,11 @@ class ModelTest(unittest.TestCase):
 		self.assertEqual(lins[3].freq, [0.9, 0.1])
 		self.assertEqual(lins[4].freq, [0.8, 0.1])
 		self.assertEqual(lins[0].sublins, [1, 2, 3, 4])
-		self.assertEqual(mapping[0], 2)
-		self.assertEqual(mapping[1], 4)
-		self.assertEqual(mapping[2], 3)
-		self.assertEqual(mapping[3], 0)
-		self.assertEqual(mapping[4], 1)
+		self.assertEqual(mapping['0'], 2)
+		self.assertEqual(mapping['1'], 4)
+		self.assertEqual(mapping['2'], 3)
+		self.assertEqual(mapping['3'], 0)
+		self.assertEqual(mapping['4'], 1)
 
 
 	def test_convert_zmatrix_for_internal_use(self):
