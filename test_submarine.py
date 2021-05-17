@@ -535,6 +535,84 @@ class ModelTest(unittest.TestCase):
 	def test_go_extended_version(self):
 
 		freq_file = "submarine_example/frequencies3.csv"
+		cna_file = "submarine_example/cnas3_pos.csv"
+		ssm_file = "submarine_example/ssms3_pos.csv"
+		impact_file = "submarine_example/impact3.csv"
+		userZ_file = "submarine_example/userZ_3.csv"
+		userSSM_file = "submarine_example/userSSM3.csv"
+		output_prefix = "submarine_example/test_extended_version"
+		overwrite = True
+		use_logging = True
+
+		z_matrix = [[0, 1, 1, 1, 1, 1], [0, 0, 0, 1, 1, 0], [0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0]]
+		true_ssm_phasing = [[0, cons.A], [1, cons.B], [2, cons.B], [3, cons.A]]
+		ssm0 = snp_ssm.SSM()
+		ssm0.seg_index = 0
+		ssm0.phase = cons.A
+		ssm0.lineage = 1
+		ssm0.index = 0
+		ssm0.chr = 1
+		ssm0.pos = 1
+		ssm1 = snp_ssm.SSM()
+		ssm1.seg_index = 0
+		ssm1.phase = cons.B
+		ssm1.lineage = 1
+		ssm1.index = 1
+		ssm1.chr = 1
+		ssm1.pos = 5
+		ssm2 = snp_ssm.SSM()
+		ssm2.seg_index = 1
+		ssm2.phase = cons.B
+		ssm2.lineage = 1
+		ssm2.index = 2
+		ssm2.chr = 1
+		ssm2.pos = 11
+		ssm3 = snp_ssm.SSM()
+		ssm3.seg_index = 2
+		ssm3.phase = cons.A
+		ssm3.lineage = 4
+		ssm3.index = 3
+		ssm3.chr = 2
+		ssm3.pos = 4
+		cnv0 = cnv.CNV(1, 0, 1, 1, 10)
+		cnv0.phase = cons.A
+		cnv0.lineage = 3
+		cnv0.index = 0
+		cnv1 = cnv.CNV(-1, 1, 1, 11, 1098)
+		cnv1.phase = cons.A
+		cnv1.lineage = 3
+		cnv1.index = 1
+		cnv2 = cnv.CNV(-1, 2, 2, 4, 8)
+		cnv2.phase = cons.B
+		cnv2.lineage = 2
+		cnv2.index = 2
+		cnv3 = cnv.CNV(-1, 2, 3, 1, 100)
+		cnv3.phase = cons.B
+		cnv3.lineage = 4
+		cnv3.index = 3
+		lin0 = lineage.Lineage([1, 2, 3, 4, 5], [1.0, 1.0], [], [], [], [], [], [], [], [])
+		lin1 = lineage.Lineage([3, 4], [0.5, 0.5], [], [], [], [], [], [], [ssm0], [ssm1, ssm2])
+		lin2 = lineage.Lineage([5], [0.49, 0.49], [], [cnv2], [], [], [], [], [], [])
+		lin3 = lineage.Lineage([4], [0.48, 0.48], [cnv0, cnv1], [], [], [], [], [], [], [])
+		lin4 = lineage.Lineage([], [0.47, 0.46], [], [cnv3], [], [], [], [], [ssm3], [])
+		lin5 = lineage.Lineage([], [0.4, 0.47], [], [], [], [], [], [], [], [])
+		true_my_lins = [lin0, lin1, lin2, lin3, lin4, lin5]
+		true_avFreqs = np.asarray([[0.01, 0.01], [0.02, 0.02], [0.09, 0.02], [0.01, 0.02], [0.47, 0.46], [0.4, 0.47]])
+		true_ppm = np.asarray([[0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0], [0, 0, 0, 1, 0, 0],
+			[0, 0, 1, 0, 0, 0]])
+
+		my_lins, z_matrix_for_output, avFreqs, ppm, ssm_phasing, sorting_id_mapping, returned_noise_buffer, smallest_buffer_set_found = submarine.go_extended_version(freq_file=freq_file, 
+			cna_file=cna_file, ssm_file=ssm_file, impact_file=impact_file, userZ_file=userZ_file, 
+			userSSM_file=userSSM_file, output_prefix=output_prefix, overwrite=overwrite, use_logging=use_logging)
+
+		self.assertEqual(z_matrix, z_matrix_for_output)
+		self.assertEqual(true_ssm_phasing, ssm_phasing)
+		self.assertTrue((true_ppm == ppm).all())
+		self.assertTrue(np.isclose(true_avFreqs, avFreqs).all())
+		self.assertEqual(true_my_lins, my_lins)
+
+		freq_file = "submarine_example/frequencies3.csv"
 		cna_file = "submarine_example/cnas3.csv"
 		ssm_file = "submarine_example/ssms3.csv"
 		impact_file = "submarine_example/impact3.csv"

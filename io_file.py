@@ -112,13 +112,17 @@ def read_cnas(my_file, sorting_id_mapping=None, use_cna_indices=False, lin_num=-
 			if use_cna_indices is False:
 				seg_index, chromosome, start, end, lineage, phase, change = line.rstrip().split("\t")
 			else:
-				cna_index, seg_index, lineage, phase, change = line.rstrip().split("\t")
+				entries = line.rstrip().split("\t")
+				if len(entries) == 5:
+					cna_index, seg_index, lineage, phase, change = entries
+					chromosome = -1
+					start = -1
+					end = -1
+				else:
+					cna_index, seg_index, lineage, phase, change, chromosome, start, end = entries
 				if int(cna_index) != cna_index_count:
 					raise eo.MyException("CNAs have to be sorted in order of their indices, indices must go from "
 						"0 to L-1, where L is the total number of CNAs.")
-				chromosome = -1
-				start = -1
-				end = -1
 				cna_index_count += 1
 			cna = cnv.CNV(int(change), int(seg_index), int(chromosome), int(start), int(end))
 			if int(change) < -1:
@@ -219,13 +223,17 @@ def read_ssms(my_file, phasing=True, sorting_id_mapping=None, use_SSM_index=Fals
 			elif use_SSM_index == False:
 				seg_index, chromosome, pos, lineage = line.rstrip().split("\t")
 			else:
-				ssm_index, seg_index, lineage = line.rstrip().split("\t")
+				entries = line.rstrip().split("\t")
+				if len(entries) == 3:
+					ssm_index, seg_index, lineage = entries
+					chromosome = -1
+					(pos) = -1
+				else:
+					ssm_index, seg_index, lineage, chromosome, pos = entries
 				if int(ssm_index) != ssm_index_count:
 					raise eo.MyException("SSMs have to be sorted in order of their indices, indices must go from "
 						"0 to J-1, where J is the total number of SSMs.")
 				ssm_index_count += 1
-				chromosome = -1
-				(pos) = -1
 			ssm = snp_ssm.SSM()
 			ssm.chr = int(chromosome)
 			ssm.pos = int(pos)
