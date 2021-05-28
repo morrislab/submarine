@@ -28,7 +28,7 @@ def from_files_is_tree_contained_in_partial_clone_tree(ppm_file=None, z_matrix_f
 	# get ID mapping from log file
 	sorting_id_mapping = oio.get_ID_mapping_from_log_file(log_file)
 	# get complete tree
-	tree_z = oio.read_matrix_from_file(tree_z_file)
+	tree_z = oio.read_matrix_from_file(complete_tree_file)
 	if tree_z[0][0] == 0:
 		tree_z = convert_zmatrix_0_m1(tree_z)	
 
@@ -4168,7 +4168,7 @@ def check_2f_CN_gains(current_gain_num, current_CNVs, z_matrix, zero_count, curr
 	affacted_lineages = list(current_CNVs[cons.GAIN][cons.B].keys())
 	# get overlap of affected and path lineages
 	if path_lineages is not None:
-		affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
+		affacted_lineages = np.intersect1d(np.asarray(affacted_lineages), path_lineages).tolist()
 
 	# check whether a lineage has two gains
 	# it's enough to check whether the lineage that gains an additional B-allele also gains
@@ -4208,7 +4208,7 @@ def check_1d_2c_CN_losses(current_loss_num, currentCNVs, z_matrix, zero_count, c
 	affacted_lineages = list(currentCNVs[cons.LOSS][cons.A].keys())
 	# get overlap of affected and path lineages
 	if path_lineages is not None:
-		affected_lineages = np.intersect1d(np.asarray(affected_lineages), path_lineages).tolist()
+		affacted_lineages = np.intersect1d(np.asarray(affacted_lineages), path_lineages).tolist()
 
 	# check whether a lineage has two losses
 	# it's enough to check whether the lineage that loose the A-allele also lost the
